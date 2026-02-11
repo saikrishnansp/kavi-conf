@@ -1,0 +1,31 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.128.0",
+    "pydantic-settings>=2.12.0",
+    "pydantic[email]>=2.12.5",
+    "pyjwt>=2.10.1",
+    "pymysql>=1.1.2",
+    "python-dotenv>=1.2.1",
+    "sqlmodel>=0.0.31",
+    "uvicorn>=0.40.0",
+    "cryptography>=42.0.0",
+    "pwdlib[argon2]>=0.3.0",
+    "websockets>=14.0",
+    "google-api-python-client>=2.189.0",
+    "google-auth>=2.48.0",
+    "fastapi-sso>=0.15.0",
+    "httpx>=0.28.1",
+]
+
+[dependency-groups]
+dev = [
+    "loguru>=0.7.3",
+    "ruff>=0.14.13",
+    "httpx>=0.27.0",
+    "mypy>=1.19.1",
+]

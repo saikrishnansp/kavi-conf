@@ -1,0 +1,1196 @@
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { RetroBackground } from "@/components/RetroBackground";
+import { RetroHeader } from "@/components/RetroHeader";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Calendar,
+  Users,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Plus,
+  Settings,
+  Loader2,
+  User,
+  Pencil,
+  Trash2,
+  Power,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { roomsApi } from "@/lib/api/rooms";
+import { bookingsApi } from "@/lib/api/bookings";
+import { usersApi } from "@/lib/api/users";
+import { authApi } from "@/lib/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
+import type { Room, RoomCreate, UserResponse, UserCreate } from "@/types/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  EditBookingDialog,
+  CancelBookingDialog,
+  TransferBookingDialog,
+  BookingActions,
+  type Booking,
+} from "@/components/BookingManagementDialogs";
+
+const Admin = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("bookings");
+  
+  // Dialog states
+  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
+  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  
+  // Booking management state
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isEditBookingOpen, setIsEditBookingOpen] = useState(false);
+  const [isCancelBookingOpen, setIsCancelBookingOpen] = useState(false);
+  const [isTransferBookingOpen, setIsTransferBookingOpen] = useState(false);
+
+  // Employee management state
+  const [userSearch, setUserSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false);
+  const [editUserForm, setEditUserForm] = useState<Partial<UserCreate>>({
+    email: "",
+    full_name: "",
+    position: "",
+    employee_id: "",
+  });
+  
+  const [newRoom, setNewRoom] = useState<RoomCreate>({
+    room_id: "",
+    name: "",
+    room_number: 0,
+    capacity: 0,
+    is_split: false,
+    parent_room_id: "",
+  });
+  
+  const [editRoom, setEditRoom] = useState<RoomCreate>({
+    room_id: "",
+    name: "",
+    room_number: 0,
+    capacity: 0,
+    is_split: false,
+    parent_room_id: "",
+  });
+
+  // Queries
+  const { data: roomsData, isLoading: loadingRooms } = useQuery({
+    queryKey: ['rooms'],
+    queryFn: () => roomsApi.getAll(false) // Include inactive rooms for management
+  });
+
+  const { data: bookingsData, isLoading: loadingBookings } = useQuery({
+    queryKey: ['bookings', { all_bookings: true }],
+    queryFn: () => bookingsApi.getAll({ all_bookings: true })
+  });
+
+  const { data: todaysBookingsData } = useQuery({
+    queryKey: ['bookings', { all_bookings: true, date: new Date().toISOString().split('T')[0] }],
+    queryFn: () => bookingsApi.getAll({ 
+      all_bookings: true, 
+      date: new Date().toISOString().split('T')[0],
+      limit: 1 // We only need the total
+    })
+  });
+
+  const { data: usersCountData } = useQuery({
+    queryKey: ['usersCount'],
+    queryFn: () => usersApi.getCount()
+  });
+
+  const { data: usersData, isLoading: loadingUsers } = useQuery({
+    queryKey: ['users', { search: userSearch }],
+    queryFn: () =>
+      usersApi.list({
+        search: userSearch,
+        skip: 0,
+        limit: 50,
+      }),
+    enabled: activeTab === "employees",
+  });
+
+  const rooms = useMemo(() => roomsData?.items || [], [roomsData]);
+  const rawBookings = useMemo(() => bookingsData?.items || [], [bookingsData]);
+  const users: UserResponse[] = usersData || [];
+
+  // Map API bookings to UI Booking interface
+  const bookings: Booking[] = useMemo(() => {
+    return rawBookings.map(b => {
+      const room = rooms.find(r => r.room_id === b.room_id);
+      return {
+        id: b.id,
+        room_id: b.room_id,
+        roomName: room?.name || "Unknown Room",
+        roomNumber: room?.room_number || 0,
+        subject: b.subject,
+        description: b.description,
+        bookedBy: b.user_id,
+        date: b.start_time.split('T')[0],
+        startTime: b.start_time.split('T')[1].substring(0, 5),
+        endTime: b.end_time.split('T')[1].substring(0, 5),
+        attendees: b.attendee_count,
+        attendees_list: b.attendees,
+        status: b.status,
+      };
+    });
+  }, [rawBookings, rooms]);
+
+  // Mutations
+  const createRoomMutation = useMutation({
+    mutationFn: roomsApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      setIsAddRoomOpen(false);
+      setNewRoom({ room_id: "", name: "", room_number: 0, capacity: 0, is_split: false, parent_room_id: "" });
+      toast({ title: "ROOM ADDED", description: "The new room has been created successfully." });
+    },
+    onError: (error: { response?: { data?: { detail?: string } } }) => {
+      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to create room", variant: "destructive" });
+    }
+  });
+
+  const updateRoomMutation = useMutation({
+    mutationFn: ({ roomId, data }: { roomId: string; data: Partial<RoomCreate> }) =>
+      roomsApi.update(roomId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      setIsEditRoomOpen(false);
+      setSelectedRoom(null);
+      toast({ title: "ROOM UPDATED", description: "Room details have been saved." });
+    },
+    onError: (error: { response?: { data?: { detail?: string } } }) => {
+      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to update room", variant: "destructive" });
+    }
+  });
+
+  const deleteRoomMutation = useMutation({
+    mutationFn: roomsApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      setIsDeleteDialogOpen(false);
+      setSelectedRoom(null);
+      toast({ title: "ROOM DELETED", description: "The room has been removed." });
+    },
+    onError: (error: { response?: { data?: { detail?: string } } }) => {
+      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to delete room", variant: "destructive" });
+    }
+  });
+
+  const cancelBookingMutation = useMutation({
+    mutationFn: (bookingId: number) => bookingsApi.cancel(bookingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast({ title: "BOOKING CANCELLED", description: "The booking has been removed." });
+    },
+    onError: (error: { response?: { data?: { detail?: string } } }) => {
+      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to cancel booking", variant: "destructive" });
+    }
+  });
+
+  const updateBookingMutation = useMutation({
+    mutationFn: ({ bookingId, data }: { bookingId: number; data: unknown }) =>
+      bookingsApi.update(bookingId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast({ title: "BOOKING UPDATED", description: "Changes saved successfully." });
+    },
+    onError: (error: { response?: { data?: { detail?: string } } }) => {
+      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to update booking", variant: "destructive" });
+    }
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ employeeId, data }: { employeeId: string; data: Partial<UserCreate> }) =>
+      authApi.updateUser(employeeId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['usersCount'] });
+      setIsEditUserOpen(false);
+      setSelectedUser(null);
+      toast({
+        title: "EMPLOYEE UPDATED",
+        description: "Employee details have been saved.",
+      });
+    },
+    onError: (error: { response?: { data?: { detail?: string } } }) => {
+      toast({
+        title: "ERROR",
+        description: error.response?.data?.detail || "Failed to update employee",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: (employeeId: string) => authApi.deleteUser(employeeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['usersCount'] });
+      setIsDeleteUserOpen(false);
+      setSelectedUser(null);
+      toast({
+        title: "EMPLOYEE REMOVED",
+        description: "The employee has been deleted.",
+      });
+    },
+    onError: (error: { response?: { data?: { detail?: string } } }) => {
+      toast({
+        title: "ERROR",
+        description: error.response?.data?.detail || "Failed to delete employee",
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (!user?.is_admin) {
+    return (
+      <RetroBackground>
+        <RetroHeader />
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h1 className="font-pixel text-2xl text-destructive mb-4">ACCESS DENIED</h1>
+          <p className="font-retro text-lg">You do not have administrative privileges to access this dashboard.</p>
+        </div>
+      </RetroBackground>
+    );
+  }
+
+  // Check if room has future bookings
+  const roomHasFutureBookings = (room_id: string) => {
+    const now = new Date();
+    return rawBookings.some(
+      b => b.room_id === room_id && new Date(b.start_time) >= now && b.status === "confirmed"
+    );
+  };
+
+  const todaysDateStr = new Date().toISOString().split('T')[0];
+  const todaysBookings = rawBookings.filter(b => b.start_time.startsWith(todaysDateStr));
+  const activeRooms = rooms.filter(r => r.is_active);
+  const totalEmployees = usersCountData?.total_employees || 0;
+
+  const handleEditUser = (userToEdit: UserResponse) => {
+    setSelectedUser(userToEdit);
+    setEditUserForm({
+      email: userToEdit.email,
+      full_name: userToEdit.full_name || "",
+      position: userToEdit.position || "",
+      employee_id: userToEdit.employee_id,
+    });
+    setIsEditUserOpen(true);
+  };
+
+  const handleSaveUserEdit = () => {
+    if (!selectedUser) return;
+
+    if (!editUserForm.email) {
+      toast({
+        title: "ERROR",
+        description: "Email is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateUserMutation.mutate({
+      employeeId: selectedUser.employee_id,
+      data: {
+        email: editUserForm.email,
+        full_name: editUserForm.full_name,
+        position: editUserForm.position,
+      },
+    });
+  };
+
+  const handleDeleteUserPrompt = (userToDelete: UserResponse) => {
+    setSelectedUser(userToDelete);
+    setIsDeleteUserOpen(true);
+  };
+
+  const handleConfirmDeleteUser = () => {
+    if (!selectedUser) return;
+    deleteUserMutation.mutate(selectedUser.employee_id);
+  };
+
+  const handleAddRoom = () => {
+    if (!newRoom.name || !newRoom.room_id || !newRoom.room_number || !newRoom.capacity) {
+      toast({
+        title: "ERROR",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const payload = {
+      ...newRoom,
+      name: newRoom.name.toUpperCase(),
+      parent_room_id: newRoom.is_split ? newRoom.parent_room_id : undefined
+    };
+    
+    createRoomMutation.mutate(payload);
+  };
+
+  const handleToggleActive = (room: Room) => {
+    updateRoomMutation.mutate({ 
+      roomId: room.room_id, 
+      data: { is_active: !room.is_active } 
+    });
+  };
+
+  const handleEditRoom = (room: Room) => {
+    setSelectedRoom(room);
+    setEditRoom({
+      room_id: room.room_id,
+      name: room.name,
+      room_number: room.room_number,
+      capacity: room.capacity,
+      is_split: room.is_split,
+      parent_room_id: room.parent_room_id || "",
+    });
+    setIsEditRoomOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedRoom || !editRoom.name || !editRoom.room_id || !editRoom.capacity) {
+      toast({
+        title: "ERROR",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateRoomMutation.mutate({
+      roomId: selectedRoom.room_id,
+      data: {
+        name: editRoom.name.toUpperCase(),
+        room_number: editRoom.room_number,
+        capacity: editRoom.capacity,
+        is_split: editRoom.is_split,
+        parent_room_id: editRoom.is_split ? editRoom.parent_room_id : null
+      }
+    });
+  };
+
+  const handleDeletePrompt = (room: Room) => {
+    setSelectedRoom(room);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteRoom = () => {
+    if (!selectedRoom) return;
+    deleteRoomMutation.mutate(selectedRoom.room_id);
+  };
+
+  // Booking management handlers
+  const handleEditBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsEditBookingOpen(true);
+  };
+
+  const handleSaveBooking = (updatedBooking: Booking) => {
+    // Map UI Booking back to API expected data
+    const apiData = {
+      subject: updatedBooking.subject,
+      description: updatedBooking.description,
+      start_time: `${updatedBooking.date}T${updatedBooking.startTime}:00`,
+      end_time: `${updatedBooking.date}T${updatedBooking.endTime}:00`,
+      attendees: updatedBooking.attendees_list.map(a => a.email),
+    };
+    updateBookingMutation.mutate({ bookingId: updatedBooking.id, data: apiData });
+    setIsEditBookingOpen(false);
+  };
+
+  const handleCancelBookingPrompt = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsCancelBookingOpen(true);
+  };
+
+  const handleCancelBooking = (booking: Booking) => {
+    cancelBookingMutation.mutate(booking.id);
+  };
+
+  const handleTransferBookingPrompt = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsTransferBookingOpen(true);
+  };
+
+  const handleTransferBooking = (booking: Booking, newRoomId: string) => {
+    updateBookingMutation.mutate({ 
+      bookingId: booking.id, 
+      data: { room_id: newRoomId } 
+    });
+    setIsTransferBookingOpen(false);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return <Badge variant="default" className="font-retro"><CheckCircle className="h-3 w-3 mr-1" />CONFIRMED</Badge>;
+      case "completed":
+        return <Badge variant="secondary" className="font-retro">COMPLETED</Badge>;
+      case "cancelled":
+        return <Badge variant="destructive" className="font-retro"><XCircle className="h-3 w-3 mr-1" />CANCELLED</Badge>;
+      default:
+        return <Badge variant="outline" className="font-retro">{status.toUpperCase()}</Badge>;
+    }
+  };
+
+  if (loadingRooms || loadingBookings) {
+    return (
+      <RetroBackground>
+        <RetroHeader />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-10 w-10 text-primary animate-spin" />
+        </div>
+      </RetroBackground>
+    );
+  }
+
+  return (
+    <RetroBackground>
+      <RetroHeader />
+
+      <main className="container mx-auto px-4 py-6 lg:py-10">
+        {/* Admin Dashboard Header */}
+        <div className="mb-8">
+          <h1 className="font-pixel text-xl sm:text-2xl text-primary neon-glow mb-2">
+            ADMIN DASHBOARD
+          </h1>
+          <p className="font-retro text-lg text-muted-foreground">
+            Manage rooms, bookings, and system settings
+          </p>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-sm bg-primary/20">
+                <Calendar className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-retro text-2xl text-foreground">{todaysBookingsData?.total || 0}</p>
+                <p className="font-retro text-sm text-muted-foreground">TODAY'S BOOKINGS</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-sm bg-secondary/20">
+                <Users className="h-5 w-5 text-secondary" />
+              </div>
+              <div>
+                <p className="font-retro text-2xl text-foreground">{totalEmployees}</p>
+                <p className="font-retro text-sm text-muted-foreground">TOTAL EMPLOYEES</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-sm bg-accent/20">
+                <Users className="h-5 w-5 text-accent" />
+              </div>
+              <div>
+                <p className="font-retro text-2xl text-foreground">{rooms.length}</p>
+                <p className="font-retro text-sm text-muted-foreground">TOTAL ROOMS</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-sm bg-primary/20">
+                <CheckCircle className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-retro text-2xl text-foreground">{activeRooms.length}</p>
+                <p className="font-retro text-sm text-muted-foreground">ROOMS ONLINE</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full max-w-xl grid-cols-3">
+            <TabsTrigger value="bookings" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              ALL BOOKINGS
+            </TabsTrigger>
+            <TabsTrigger value="rooms" className="gap-2">
+              <Settings className="h-4 w-4" />
+              ROOM SETTINGS
+            </TabsTrigger>
+            <TabsTrigger value="employees" className="gap-2">
+              <User className="h-4 w-4" />
+              EMPLOYEES
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Bookings Tab */}
+          <TabsContent value="bookings" className="space-y-4">
+            <Card>
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  ALL SYSTEM BOOKINGS
+                </CardTitle>
+                <Badge variant="outline" className="font-retro">
+                  {new Date().toLocaleDateString()}
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b-2 border-border">
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">ROOM</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">SUBJECT</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">BOOKED BY</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">TIME</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">ATTENDEES</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">STATUS</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bookings.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center font-retro text-muted-foreground">
+                            No bookings found in the system.
+                          </td>
+                        </tr>
+                      ) : (
+                        bookings.map((booking) => (
+                          <tr key={booking.id} className="border-b border-border hover:bg-muted/5">
+                            <td className="p-3">
+                              <p className="font-pixel text-xs">{booking.roomName}</p>
+                              <p className="font-retro text-sm text-muted-foreground">#{booking.roomNumber}</p>
+                            </td>
+                            <td className="p-3 font-retro text-lg">{booking.subject}</td>
+                            <td className="p-3 font-retro text-lg text-muted-foreground">{booking.bookedBy}</td>
+                            <td className="p-3 font-retro text-lg text-primary">{booking.startTime} - {booking.endTime}</td>
+                            <td className="p-3 font-retro text-lg">{booking.attendees}</td>
+                            <td className="p-3">{getStatusBadge(booking.status)}</td>
+                            <td className="p-3">
+                              <BookingActions
+                                booking={booking}
+                                onEdit={handleEditBooking}
+                                onCancel={handleCancelBookingPrompt}
+                                onTransfer={handleTransferBookingPrompt}
+                                compact
+                              />
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Room Settings Tab */}
+          <TabsContent value="rooms" className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-pixel text-sm text-foreground">MANAGE ROOMS</h2>
+              <Dialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="neon" size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    ADD ROOM
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle className="font-pixel text-sm text-primary">ADD NEW ROOM</DialogTitle>
+                    <DialogDescription className="font-retro text-lg">
+                      Enter the details for the new room.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="room_id" className="font-retro">Room ID (Unique)</Label>
+                      <Input
+                        id="room_id"
+                        value={newRoom.room_id}
+                        onChange={(e) => setNewRoom({ ...newRoom, room_id: e.target.value })}
+                        placeholder="e.g., 101-CONF-A"
+                        className="font-retro"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="name" className="font-retro">Room Name</Label>
+                      <Input
+                        id="name"
+                        value={newRoom.name}
+                        onChange={(e) => setNewRoom({ ...newRoom, name: e.target.value })}
+                        placeholder="e.g., NEON LOUNGE"
+                        className="font-retro"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="room_number" className="font-retro">Number</Label>
+                        <Input
+                          id="room_number"
+                          type="number"
+                          value={newRoom.room_number || ""}
+                          onChange={(e) => setNewRoom({ ...newRoom, room_number: parseInt(e.target.value) || 0 })}
+                          placeholder="101"
+                          className="font-retro"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="capacity" className="font-retro">Capacity</Label>
+                        <Input
+                          id="capacity"
+                          type="number"
+                          value={newRoom.capacity || ""}
+                          onChange={(e) => setNewRoom({ ...newRoom, capacity: parseInt(e.target.value) || 0 })}
+                          placeholder="8"
+                          className="font-retro"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="is_split" className="font-retro">Splittable Room</Label>
+                      <Switch
+                        id="is_split"
+                        checked={newRoom.is_split}
+                        onCheckedChange={(checked) => setNewRoom({ ...newRoom, is_split: checked })}
+                      />
+                    </div>
+                    {newRoom.is_split && (
+                      <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+                        <Label htmlFor="parent_room" className="font-retro text-primary">Parent Room</Label>
+                        <Select 
+                          value={newRoom.parent_room_id} 
+                          onValueChange={(val) => setNewRoom({ ...newRoom, parent_room_id: val })}
+                        >
+                          <SelectTrigger className="font-retro">
+                            <SelectValue placeholder="Select Parent Room" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {rooms.filter(r => !r.is_split).map((room) => (
+                              <SelectItem key={room.room_id} value={room.room_id} className="font-retro">
+                                {room.name} (#{room.room_number})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddRoomOpen(false)}>
+                      CANCEL
+                    </Button>
+                    <Button variant="neon" onClick={handleAddRoom} disabled={createRoomMutation.isPending}>
+                      {createRoomMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      CREATE ROOM
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b-2 border-border">
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">ROOM</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">CAPACITY</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">AVAILABILITY</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">STATUS</th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rooms.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center font-retro text-muted-foreground">
+                            No rooms found in the system.
+                          </td>
+                        </tr>
+                      ) : (
+                        rooms.map((room) => {
+                          const isAvailable = !room.next_available_at || new Date(room.next_available_at) <= new Date();
+                          const formatTime = (isoString: string) => {
+                            return new Date(isoString).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: false 
+                            });
+                          };
+
+                          return (
+                            <tr key={room.room_id} className="border-b border-border hover:bg-muted/5">
+                              <td className="p-3">
+                                <p className="font-pixel text-xs">{room.name}</p>
+                                <p className="font-retro text-sm text-muted-foreground">#{room.room_number}</p>
+                              </td>
+                              <td className="p-3 font-retro text-lg">{room.capacity} seats</td>
+                              <td className="p-3">
+                                <div className="font-retro text-sm">
+                                  <span className="text-muted-foreground">Next: </span>
+                                  <span className={isAvailable ? "text-primary" : "text-destructive"}>
+                                    {isAvailable ? "NOW" : formatTime(room.next_available_at!)}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <Badge variant={room.is_active ? "default" : "destructive"} className="font-retro">
+                                  {room.is_active ? "ONLINE" : "OFFLINE"}
+                                </Badge>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleEditRoom(room)}
+                                    title="Edit Room"
+                                  >
+                                    <Pencil className="h-3 w-3 mr-1" />
+                                    EDIT
+                                  </Button>
+                                  <Button 
+                                    variant={room.is_active ? "destructive" : "default"} 
+                                    size="sm"
+                                    onClick={() => handleToggleActive(room)}
+                                    disabled={updateRoomMutation.isPending}
+                                    title={room.is_active ? "Deactivate Room" : "Activate Room"}
+                                  >
+                                    <Power className="h-3 w-3 mr-1" />
+                                    {room.is_active ? "OFF" : "ON"}
+                                  </Button>
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm"
+                                    onClick={() => handleDeletePrompt(room)}
+                                    title="Delete Room"
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    DEL
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Employees Tab */}
+          <TabsContent value="employees" className="space-y-4">
+            <Card>
+              <CardHeader className="pb-2 flex flex-row items-center justify-between gap-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="h-5 w-5 text-secondary" />
+                  EMPLOYEE DIRECTORY
+                </CardTitle>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    placeholder="Search by name, email or employee ID..."
+                    className="font-retro w-64"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b-2 border-border">
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">
+                          EMPLOYEE ID
+                        </th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">
+                          NAME
+                        </th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">
+                          EMAIL
+                        </th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">
+                          POSITION
+                        </th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">
+                          ROLE
+                        </th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">
+                          CREATED
+                        </th>
+                        <th className="text-left p-3 font-retro text-sm text-muted-foreground">
+                          ACTIONS
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loadingUsers ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center">
+                            <Loader2 className="h-6 w-6 text-primary animate-spin inline-block" />
+                          </td>
+                        </tr>
+                      ) : users.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            className="p-8 text-center font-retro text-muted-foreground"
+                          >
+                            No employees found.
+                          </td>
+                        </tr>
+                      ) : (
+                        users.map((emp) => (
+                          <tr
+                            key={emp.employee_id}
+                            className="border-b border-border hover:bg-muted/5"
+                          >
+                            <td className="p-3 font-retro text-lg">{emp.employee_id}</td>
+                            <td className="p-3 font-retro text-lg">
+                              {emp.full_name || "-"}
+                            </td>
+                            <td className="p-3 font-retro text-lg text-muted-foreground">
+                              {emp.email}
+                            </td>
+                            <td className="p-3 font-retro text-lg">
+                              {emp.position || "-"}
+                            </td>
+                            <td className="p-3">
+                              <Badge
+                                variant={emp.is_admin ? "default" : "outline"}
+                                className="font-retro"
+                              >
+                                {emp.is_admin ? "ADMIN" : "USER"}
+                              </Badge>
+                            </td>
+                            <td className="p-3 font-retro text-sm text-muted-foreground">
+                              {new Date(emp.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditUser(emp)}
+                                >
+                                  <Pencil className="h-3 w-3 mr-1" />
+                                  EDIT
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDeleteUserPrompt(emp)}
+                                  disabled={emp.employee_id === user?.employee_id}
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  DELETE
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Edit Room Dialog */}
+        <Dialog open={isEditRoomOpen} onOpenChange={setIsEditRoomOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="font-pixel text-sm text-primary">EDIT ROOM</DialogTitle>
+              <DialogDescription className="font-retro text-lg">
+                Update the room details.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit_name" className="font-retro">Room Name</Label>
+                <Input
+                  id="edit_name"
+                  value={editRoom.name}
+                  onChange={(e) => setEditRoom({ ...editRoom, name: e.target.value })}
+                  placeholder="e.g., NEON LOUNGE"
+                  className="font-retro"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit_room_number" className="font-retro">Number</Label>
+                  <Input
+                    id="edit_room_number"
+                    type="number"
+                    value={editRoom.room_number || ""}
+                    onChange={(e) => setEditRoom({ ...editRoom, room_number: parseInt(e.target.value) || 0 })}
+                    className="font-retro"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit_capacity" className="font-retro">Capacity</Label>
+                  <Input
+                    id="edit_capacity"
+                    type="number"
+                    value={editRoom.capacity || ""}
+                    onChange={(e) => setEditRoom({ ...editRoom, capacity: parseInt(e.target.value) || 0 })}
+                    className="font-retro"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit_is_split" className="font-retro">Splittable Room</Label>
+                <Switch
+                  id="edit_is_split"
+                  checked={editRoom.is_split}
+                  onCheckedChange={(checked) => setEditRoom({ ...editRoom, is_split: checked })}
+                />
+              </div>
+              {editRoom.is_split && (
+                <div className="grid gap-2">
+                  <Label htmlFor="edit_parent_room" className="font-retro text-primary">Parent Room</Label>
+                  <Select 
+                    value={editRoom.parent_room_id} 
+                    onValueChange={(val) => setEditRoom({ ...editRoom, parent_room_id: val })}
+                  >
+                    <SelectTrigger className="font-retro">
+                      <SelectValue placeholder="Select Parent Room" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rooms.filter(r => !r.is_split && r.room_id !== editRoom.room_id).map((room) => (
+                        <SelectItem key={room.room_id} value={room.room_id} className="font-retro">
+                          {room.name} (#{room.room_number})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditRoomOpen(false)}>
+                CANCEL
+              </Button>
+              <Button variant="neon" onClick={handleSaveEdit} disabled={updateRoomMutation.isPending}>
+                {updateRoomMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                SAVE CHANGES
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-pixel text-sm text-destructive">DELETE ROOM</AlertDialogTitle>
+              <AlertDialogDescription className="font-retro text-lg">
+                This room has no future bookings. Are you sure you want to permanently delete <span className="text-primary font-bold">{selectedRoom?.name}</span>?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="font-retro">CANCEL</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteRoom} 
+                className="bg-destructive hover:bg-destructive/90 font-retro"
+                disabled={deleteRoomMutation.isPending}
+              >
+                {deleteRoomMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                DELETE
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Edit Employee Dialog */}
+        <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="font-pixel text-sm text-primary">
+                EDIT EMPLOYEE
+              </DialogTitle>
+              <DialogDescription className="font-retro text-lg">
+                Update the employee details.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label className="font-retro">EMPLOYEE ID</Label>
+                <Input
+                  value={editUserForm.employee_id || ""}
+                  disabled
+                  className="font-retro opacity-70"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label className="font-retro">EMAIL *</Label>
+                <Input
+                  value={editUserForm.email || ""}
+                  onChange={(e) =>
+                    setEditUserForm((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                  type="email"
+                  className="font-retro"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label className="font-retro">FULL NAME</Label>
+                <Input
+                  value={editUserForm.full_name || ""}
+                  onChange={(e) =>
+                    setEditUserForm((prev) => ({ ...prev, full_name: e.target.value }))
+                  }
+                  className="font-retro"
+                  placeholder="Employee name"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label className="font-retro">POSITION</Label>
+                <Input
+                  value={editUserForm.position || ""}
+                  onChange={(e) =>
+                    setEditUserForm((prev) => ({ ...prev, position: e.target.value }))
+                  }
+                  className="font-retro"
+                  placeholder="Job title"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
+                CANCEL
+              </Button>
+              <Button
+                variant="neon"
+                onClick={handleSaveUserEdit}
+                disabled={updateUserMutation.isPending}
+              >
+                {updateUserMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                SAVE CHANGES
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Employee Confirmation Dialog */}
+        <AlertDialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-pixel text-sm text-destructive">
+                DELETE EMPLOYEE
+              </AlertDialogTitle>
+              <AlertDialogDescription className="font-retro text-lg">
+                Are you sure you want to permanently remove{" "}
+                <span className="text-primary font-bold">
+                  {selectedUser?.full_name || selectedUser?.email}
+                </span>
+                ? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="font-retro">
+                CANCEL
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteUser}
+                className="bg-destructive hover:bg-destructive/90 font-retro"
+                disabled={deleteUserMutation.isPending}
+              >
+                {deleteUserMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                DELETE
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Booking Management Dialogs */}
+        <EditBookingDialog
+          booking={selectedBooking}
+          isOpen={isEditBookingOpen}
+          onClose={() => {
+            setIsEditBookingOpen(false);
+            setSelectedBooking(null);
+          }}
+          onSave={handleSaveBooking}
+        />
+        <CancelBookingDialog
+          booking={selectedBooking}
+          isOpen={isCancelBookingOpen}
+          onClose={() => {
+            setIsCancelBookingOpen(false);
+            setSelectedBooking(null);
+          }}
+          onConfirm={handleCancelBooking}
+        />
+        <TransferBookingDialog
+          booking={selectedBooking}
+          rooms={rooms}
+          isOpen={isTransferBookingOpen}
+          onClose={() => {
+            setIsTransferBookingOpen(false);
+            setSelectedBooking(null);
+          }}
+          onTransfer={handleTransferBooking}
+        />
+      </main>
+    </RetroBackground>
+  );
+};
+
+export default Admin;

@@ -1,0 +1,70 @@
+# -------------------------
+# Python / FastAPI / SQLModel
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.log
+*.sqlite3
+*.db
+*.env
+.env.*
+.venv/
+venv/
+ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# -------------------------
+# MySQL dumps
+# -------------------------
+*.sql
+*.bak
+*.dump
+
+# -------------------------
+# IDE / Editor
+# -------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+*.temp
+
+# -------------------------
+# OS / Misc
+# -------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.BIN/
+*.lnk
+
+# -------------------------
+# Logs
+# -------------------------
+*.log
+logs/
+
+# -------------------------
+# Documentation and Plans (Local Only)
+# -------------------------
+curl.txt
+plan.md
+project_status.mmd
+*.png
+
+
+# Agent Memory
+GEMINI.md
