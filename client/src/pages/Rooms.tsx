@@ -16,7 +16,13 @@ import { RetroBackground } from "@/components/RetroBackground";
 import { RetroHeader } from "@/components/RetroHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +32,7 @@ import { endOfDay, format, startOfDay } from "date-fns";
 import {
   ArrowRight,
   BookOpen,
-  Calendar,
+  Calendar as CalendarIcon,
   CheckCircle,
   Clock,
   Grid,
@@ -59,6 +65,7 @@ const Rooms = () => {
   const { user } = useAuth(); // Get current user
   const isAdmin = user?.is_admin || false;
   const [activeTab, setActiveTab] = useState(location.state?.defaultTab || "grid");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -81,10 +88,9 @@ const Rooms = () => {
     queryFn: () => bookingsApi.getAll(),
   });
 
-  // 3. Fetch Public Bookings for today (for grid)
-  const today = new Date();
-  const start = startOfDay(today).toISOString();
-  const end = endOfDay(today).toISOString();
+  // 3. Fetch Public Bookings for selected date (for grid)
+  const start = startOfDay(selectedDate).toISOString();
+  const end = endOfDay(selectedDate).toISOString();
 
   const { data: publicBookings } = useQuery({
     queryKey: ["publicBookings", start, end],
@@ -370,10 +376,36 @@ const Rooms = () => {
           <TabsContent value='grid' className='space-y-4'>
             <Card>
               <CardHeader className='pb-2'>
-                <CardTitle className='text-base flex items-center gap-2'>
-                  <Clock className='h-5 w-5 text-primary' />
-                  TODAY'S SCHEDULE
-                </CardTitle>
+                <div className='flex items-center justify-between'>
+                  <CardTitle className='text-base flex items-center gap-2'>
+                    <Clock className='h-5 w-5 text-primary' />
+                    {format(selectedDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
+                      ? "TODAY'S SCHEDULE"
+                      : `SCHEDULE FOR ${format(selectedDate, "MMM d, yyyy")}`}
+                  </CardTitle>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-[240px] justify-start text-left font-normal",
+                          !selectedDate && "text-muted-foreground",
+                        )}
+                      >
+                        <CalendarIcon className='mr-2 h-4 w-4' />
+                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className='w-auto p-0' align='end'>
+                      <Calendar
+                        mode='single'
+                        selected={selectedDate}
+                        onSelect={(date) => date && setSelectedDate(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </CardHeader>
               <CardContent className='overflow-x-auto'>
                 <div className='min-w-[800px]'>
@@ -495,7 +527,7 @@ const Rooms = () => {
             <Card>
               <CardHeader>
                 <CardTitle className='font-pixel text-base flex items-center gap-2'>
-                  <Calendar className='h-5 w-5 text-primary' />
+                  <CalendarIcon className='h-5 w-5 text-primary' />
                   MY BOOKINGS
                 </CardTitle>
               </CardHeader>
@@ -534,7 +566,7 @@ const Rooms = () => {
                             </div>
                             <div className='flex items-center gap-4 text-sm text-muted-foreground'>
                               <span className='flex items-center gap-1'>
-                                <Calendar className='h-3 w-3' />
+                                <CalendarIcon className='h-3 w-3' />
                                 {booking.date}
                               </span>
                               <span className='flex items-center gap-1'>
@@ -585,7 +617,7 @@ const Rooms = () => {
                             </div>
                             <div className='flex items-center gap-4 text-sm text-muted-foreground'>
                               <span className='flex items-center gap-1'>
-                                <Calendar className='h-3 w-3' />
+                                <CalendarIcon className='h-3 w-3' />
                                 {booking.date}
                               </span>
                               <span className='flex items-center gap-1'>
