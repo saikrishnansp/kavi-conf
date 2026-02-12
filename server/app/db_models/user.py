@@ -12,6 +12,7 @@ class User(SQLModel, table=True):
     password_hash: str = Field(nullable=False)
     full_name: Optional[str] = Field(default=None)
     position: Optional[str] = Field(default=None)
+    google_refresh_token: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(IST))
 
     @property

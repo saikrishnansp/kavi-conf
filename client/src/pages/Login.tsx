@@ -44,7 +44,7 @@ const Login = () => {
 
   // --- NEW: Handle Google Login ---
   const handleGoogleLogin = () => {
-    const googleLoginUrl = `${import.meta.env.VITE_API_URL}/auth/login/google`;
+    const googleLoginUrl = `${import.meta.env.VITE_API_URL}/auth/login/google?access_type=offline&prompt=consent`;
     window.location.href = googleLoginUrl;
   };
 

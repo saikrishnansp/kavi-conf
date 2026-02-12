@@ -88,6 +88,7 @@ class BookingResponse(BookingBase):
     attendees: List[AttendeeDetail] = []
     meet_link: Optional[str] = None
     calendar_link: Optional[str] = None
+    google_event_id: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod

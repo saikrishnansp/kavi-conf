@@ -183,24 +183,43 @@ def create_booking(
 
         # 7. Create Booking
         # Generate Google Calendar Event first to get links
-        meet_link, calendar_link = None, None
+        meet_link, calendar_link, google_event_id = None, None, None
         if effective_google_token:
-            from app.utils.google_calendar import create_google_calendar_event
+            from app.utils.google_calendar import create_event
+            from app.utils.logging import logger
             attendee_emails = [a["email"] for a in resolved_attendees]
             if current_user.email not in attendee_emails:
                 attendee_emails.append(current_user.email)
 
-            meet_link, calendar_link = create_google_calendar_event(
-                subject=booking_in.subject,
-                start_time=booking_in.start_time,
-                end_time=booking_in.end_time,
-                attendees_emails=attendee_emails,
-                user_token=effective_google_token,
-                description=booking_in.description
-            )
+            try:
+                meet_link, calendar_link, google_event_id = create_event(
+                    subject=booking_in.subject,
+                    start_time=booking_in.start_time,
+                    end_time=booking_in.end_time,
+                    attendees_emails=attendee_emails,
+                    user_token=effective_google_token,
+                    refresh_token=current_user.google_refresh_token,
+                    description=booking_in.description,
+                    send_updates='all'
+                )
+                
+                if not google_event_id:
+                    logger.error(f"Google Calendar event creation returned None for user {current_user.email}")
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail="Failed to create Google Calendar event. Please check your Google permissions."
+                    )
+            except Exception as e:
+                logger.error(f"Critical error during Google Calendar event creation: {str(e)}")
+                if isinstance(e, HTTPException):
+                    raise e
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Google Calendar Integration Error: {str(e)}"
+                )
         else:
             from app.utils.logging import logger
-            logger.warning("Google token missing (both header and JWT), skipping Calendar event creation.")
+            logger.warning(f"Google token missing for user {current_user.email}, skipping Calendar event creation.")
 
         new_booking = booking_crud.create_booking(
             session,
@@ -209,6 +228,7 @@ def create_booking(
             resolved_attendees=resolved_attendees,
             meet_link=meet_link,
             calendar_link=calendar_link,
+            google_event_id=google_event_id,
             commit=False,
         )
         
@@ -263,10 +283,14 @@ def update_booking(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
     background_tasks: BackgroundTasks,
+    x_google_token: Annotated[Optional[str], Header()] = None,
+    google_token_from_jwt: Annotated[Optional[str], Depends(get_google_token)] = None,
 ):
     """
     Update an existing booking.
     """
+    effective_google_token = x_google_token or google_token_from_jwt
+
     with transaction_scope(session):
         db_booking = booking_crud.get_booking_by_id(session, booking_id)
         if not db_booking:
@@ -383,7 +407,31 @@ def update_booking(
                     detail=f"The following attendees have conflicting bookings: {', '.join(conflicts)}",
                 )
 
-        # 7. Update
+        # 7. Google Calendar Update
+        if db_booking.google_event_id and effective_google_token:
+            from app.utils.google_calendar import update_event
+            attendee_emails = []
+            if resolved_attendees:
+                attendee_emails = [a["email"] for a in resolved_attendees]
+            else:
+                attendee_emails = [a.email for a in db_booking.attendees_list]
+            
+            if current_user.email not in attendee_emails:
+                attendee_emails.append(current_user.email)
+
+            update_event(
+                event_id=db_booking.google_event_id,
+                subject=booking_in.subject or db_booking.subject,
+                start_time=start_time,
+                end_time=end_time,
+                attendees_emails=attendee_emails,
+                user_token=effective_google_token,
+                refresh_token=current_user.google_refresh_token,
+                description=booking_in.description if booking_in.description is not None else db_booking.description,
+                send_updates='all'
+            )
+
+        # 8. Update DB
         updated_booking = booking_crud.update_booking(
             session, db_booking, booking_in, resolved_attendees, commit=False
         )
@@ -498,10 +546,14 @@ def cancel_booking(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
     background_tasks: BackgroundTasks,
+    x_google_token: Annotated[Optional[str], Header()] = None,
+    google_token_from_jwt: Annotated[Optional[str], Depends(get_google_token)] = None,
 ):
     """
     Cancel a booking.
     """
+    effective_google_token = x_google_token or google_token_from_jwt
+
     booking = booking_crud.get_booking_by_id(session, booking_id)
     if not booking:
         raise HTTPException(
@@ -518,6 +570,16 @@ def cancel_booking(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Booking is already cancelled.",
+        )
+
+    # Google Calendar Deletion
+    if booking.google_event_id and effective_google_token:
+        from app.utils.google_calendar import delete_event
+        delete_event(
+            event_id=booking.google_event_id,
+            user_token=effective_google_token,
+            refresh_token=current_user.google_refresh_token,
+            send_updates='all'
         )
 
     cancelled_booking = booking_crud.cancel_booking(session, booking_id)

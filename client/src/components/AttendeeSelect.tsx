@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Check, ChevronsUpDown, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -15,10 +13,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
-import { usersApi } from "@/lib/api/users";
-import { UserResponse } from "@/types/api";
 import { useDebounce } from "@/hooks/useDebounce";
+import { usersApi } from "@/lib/api/users";
+import { cn } from "@/lib/utils";
+import { UserResponse } from "@/types/api";
+import { Check, ChevronsUpDown, X } from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 interface AttendeeSelectProps {
   selectedEmails: string[];
@@ -39,7 +39,7 @@ const AttendeeSelect: React.FC<AttendeeSelectProps> = ({
 
   useEffect(() => {
     const fetchUsers = async () => {
-      if (debouncedSearch.length < 1) {
+      if (!debouncedSearch || debouncedSearch.length < 1) {
         setSearchResults([]);
         return;
       }
@@ -86,13 +86,13 @@ const AttendeeSelect: React.FC<AttendeeSelectProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-1 mb-1">
+    <div className='flex flex-col gap-2'>
+      <div className='flex flex-wrap gap-1 mb-1'>
         {selectedEmails.map((email) => (
-          <Badge key={email} variant="secondary" className="gap-1">
+          <Badge key={email} variant='secondary' className='gap-1'>
             {email}
             <button
-              className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className='ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   handleRemove(email);
@@ -104,7 +104,7 @@ const AttendeeSelect: React.FC<AttendeeSelectProps> = ({
               }}
               onClick={() => handleRemove(email)}
             >
-              <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+              <X className='h-3 w-3 text-muted-foreground hover:text-foreground' />
             </button>
           </Badge>
         ))}
@@ -113,32 +113,36 @@ const AttendeeSelect: React.FC<AttendeeSelectProps> = ({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
-            variant="outline"
-            role="combobox"
+            variant='outline'
+            role='combobox'
             aria-expanded={open}
-            className="w-full justify-between"
+            className='w-full justify-between'
           >
             {placeholder}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+        <PopoverContent className='w-[var(--radix-popover-trigger-width)] p-0'>
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search by name, email or employee ID..."
+              placeholder='Search by name, email or employee ID...'
               value={searchValue}
               onValueChange={setSearchValue}
               onKeyDown={handleKeyDown}
             />
             <CommandList>
-              {loading && <div className="p-4 text-sm text-center">Loading...</div>}
-              {!loading && searchResults.length === 0 && searchValue.length > 0 && (
-                <CommandEmpty>
-                  {isEmail(searchValue) 
-                    ? `Press Enter to add external guest: ${searchValue}`
-                    : "No users found."}
-                </CommandEmpty>
+              {loading && (
+                <div className='p-4 text-sm text-center'>Loading...</div>
               )}
+              {!loading &&
+                searchResults.length === 0 &&
+                searchValue.length > 0 && (
+                  <CommandEmpty>
+                    {isEmail(searchValue)
+                      ? `Press Enter to add external guest: ${searchValue}`
+                      : "No users found."}
+                  </CommandEmpty>
+                )}
               <CommandGroup>
                 {searchResults.map((user) => (
                   <CommandItem
@@ -152,12 +156,18 @@ const AttendeeSelect: React.FC<AttendeeSelectProps> = ({
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        selectedEmails.includes(user.email) ? "opacity-100" : "opacity-0"
+                        selectedEmails.includes(user.email)
+                          ? "opacity-100"
+                          : "opacity-0",
                       )}
                     />
-                    <div className="flex flex-col">
-                      <span>{user.full_name} ({user.email})</span>
-                      <span className="text-xs text-muted-foreground">{user.employee_id} - {user.position}</span>
+                    <div className='flex flex-col'>
+                      <span>
+                        {user.full_name} ({user.email})
+                      </span>
+                      <span className='text-xs text-muted-foreground'>
+                        {user.employee_id} - {user.position}
+                      </span>
                     </div>
                   </CommandItem>
                 ))}

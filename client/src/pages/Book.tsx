@@ -227,6 +227,8 @@ const Book = () => {
       if (lastSuccess) {
         setLastCreatedBooking(lastSuccess);
         setIsSuccessDialogOpen(true);
+        // Invalidate rooms to refresh availability grid
+        queryClient.invalidateQueries({ queryKey: ["rooms"] });
       }
 
       if (failCount === 0) {

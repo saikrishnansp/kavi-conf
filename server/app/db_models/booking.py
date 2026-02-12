@@ -24,6 +24,7 @@ class Booking(SQLModel, table=True):
     status: BookingStatus = Field(default=BookingStatus.CONFIRMED)
     meet_link: Optional[str] = Field(default=None)
     calendar_link: Optional[str] = Field(default=None)
+    google_event_id: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(IST))
 
     # Relationships

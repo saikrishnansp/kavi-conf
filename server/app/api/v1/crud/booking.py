@@ -183,6 +183,7 @@ def create_booking(
     resolved_attendees: list[dict] = None,
     meet_link: Optional[str] = None,
     calendar_link: Optional[str] = None,
+    google_event_id: Optional[str] = None,
     commit: bool = True,
 ) -> Booking:
     booking_data = booking_in.model_dump()
@@ -199,6 +200,7 @@ def create_booking(
         status=BookingStatus.CONFIRMED,
         meet_link=meet_link,
         calendar_link=calendar_link,
+        google_event_id=google_event_id,
     )
     session.add(db_booking)
     session.flush()

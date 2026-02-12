@@ -88,13 +88,17 @@ def login(user_in: UserLogin, session: Annotated[Session, Depends(get_session)])
 
 
 @router.get("/login/google")
-async def google_login(sso: Annotated[GoogleSSO, Depends(get_google_sso)]):
+async def google_login(
+    sso: Annotated[GoogleSSO, Depends(get_google_sso)],
+    access_type: str = "online",
+    prompt: str = ""
+):
     """
     Redirect to Google login page.
     """
     async with sso:
         return await sso.get_login_redirect(
-            params={"prompt": "consent", "access_type": "offline"}
+            params={"prompt": prompt or "consent", "access_type": access_type or "offline"}
         )
 
 
@@ -124,12 +128,12 @@ async def google_callback(
             detail="No account found. Please register with this email first."
         )
     
-    # Ensure email matches exactly (already implied by get_user_by_email, but good for clarity)
-    if user.email != user_sso.email:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email mismatch during authentication."
-        )
+    # Save refresh token if provided
+    if sso.refresh_token:
+        user.google_refresh_token = sso.refresh_token
+        session.add(user)
+        session.commit()
+        session.refresh(user)
 
     # Include the google access token in our internal JWT
     access_token = create_access_token(
