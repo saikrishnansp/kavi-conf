@@ -55,6 +55,9 @@ const Agenda = () => {
     const startDate = parseISO(item.start_time);
     const endDate = parseISO(item.end_time);
     
+    // Extract attendee emails from the event
+    const attendeeEmails = (item as any).attendees?.map((a: any) => a.email) || [];
+
     navigate("/book", {
       state: {
         prefill: {
@@ -62,6 +65,9 @@ const Agenda = () => {
           dates: [startOfDay(startDate)],
           startTime: format(startDate, "HH:mm"),
           endTime: format(endDate, "HH:mm"),
+          googleEventId: item.id,
+          meetLink: (item as any).meet_link,
+          attendees: attendeeEmails,
         }
       }
     });

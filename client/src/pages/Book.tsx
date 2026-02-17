@@ -68,6 +68,8 @@ const Book = () => {
     subject,
     description,
     selectedRoom,
+    googleEventId,
+    meetLink,
   } = form;
   const [isBooking, setIsBooking] = useState(false);
   const [loadingText, setLoadingText] = useState("CONFIRM BOOKING");
@@ -84,6 +86,9 @@ const Book = () => {
         dates: prefill.dates || dates,
         startTime: prefill.startTime || startTime,
         endTime: prefill.endTime || endTime,
+        attendees: prefill.attendees || attendees,
+        googleEventId: prefill.googleEventId,
+        meetLink: prefill.meetLink,
       });
       // Clear state after pre-filling
       window.history.replaceState({}, document.title);
@@ -210,6 +215,8 @@ const Book = () => {
       description: description,
       attendees: attendees,
       additional_dates: otherDates.map(d => d.toISOString()),
+      google_event_id: googleEventId,
+      meet_link: meetLink,
     };
 
     try {

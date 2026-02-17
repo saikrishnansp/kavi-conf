@@ -28,6 +28,8 @@ class BookingCreate(BookingBase):
     attendees: List[str] = Field(..., min_length=1, max_length=50)
     attendee_count: Optional[int] = None
     additional_dates: List[datetime] = []
+    google_event_id: Optional[str] = None
+    meet_link: Optional[str] = None
 
     @field_validator("end_time")
     @classmethod

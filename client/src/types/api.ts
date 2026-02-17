@@ -68,6 +68,9 @@ export interface BookingCreate {
   subject: string;
   description?: string;
   attendees: string[];
+  additional_dates?: string[];
+  google_event_id?: string;
+  meet_link?: string;
 }
 
 export interface AttendeeDetail {
@@ -90,6 +93,7 @@ export interface BookingResponse {
   created_at: string;
   meet_link?: string | null;
   calendar_link?: string | null;
+  google_event_id?: string | null;
 }
 
 export interface BookingListResponse {

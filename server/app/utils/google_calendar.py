@@ -140,6 +140,7 @@ def update_event(
     refresh_token: Optional[str] = None,
     description: Optional[str] = None,
     send_updates: str = "all",
+    location: Optional[str] = None,
 ):
     """
     Updates a Google Calendar event.
@@ -161,6 +162,7 @@ def update_event(
     event.update({
         'summary': subject,
         'description': description or "",
+        'location': location or event.get('location'),
         'start': {
             'dateTime': start_time.isoformat(),
             'timeZone': 'Asia/Kolkata',
@@ -316,7 +318,10 @@ def list_events(
                 'start': event.get('start', {}).get('dateTime') or event.get('start', {}).get('date'),
                 'end': event.get('end', {}).get('dateTime') or event.get('end', {}).get('date'),
                 'location': event.get('location'),
-                'htmlLink': event.get('htmlLink')
+                'htmlLink': event.get('htmlLink'),
+                'meet_link': event.get('hangoutLink'),
+                'organizer': event.get('organizer', {}).get('email'),
+                'attendees': event.get('attendees', [])
             })
         return formatted_events
     except Exception as e:

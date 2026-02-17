@@ -266,36 +266,55 @@ def create_booking(
                     detail=f"Some attendees have conflicting bookings for {s.strftime('%Y-%m-%d %H:%M')}: {', '.join(conflicts)}",
                 )
 
-        # 7. Create Google Calendar Event (Once for the entire series)
-        meet_link, calendar_link, google_event_id = None, None, None
+        # 7. Google Calendar Handling
+        meet_link, calendar_link, google_event_id = booking_in.meet_link, None, booking_in.google_event_id
+        
         if effective_google_token:
-            from app.utils.google_calendar import create_event
             from app.utils.logging import logger
             attendee_emails = [a["email"] for a in resolved_attendees]
             if current_user.email not in attendee_emails:
                 attendee_emails.append(current_user.email)
 
             try:
-                meet_link, calendar_link, google_event_id = create_event(
-                    subject=booking_in.subject,
-                    start_time=booking_in.start_time,
-                    end_time=booking_in.end_time,
-                    attendees_emails=attendee_emails,
-                    user_token=effective_google_token,
-                    refresh_token=current_user.google_refresh_token,
-                    description=booking_in.description,
-                    send_updates='all',
-                    additional_dates=booking_in.additional_dates
-                )
+                if google_event_id:
+                    # SEAMLESS BOOKING: Update existing event
+                    from app.utils.google_calendar import update_event
+                    success = update_event(
+                        event_id=google_event_id,
+                        subject=booking_in.subject,
+                        start_time=booking_in.start_time,
+                        end_time=booking_in.end_time,
+                        attendees_emails=attendee_emails,
+                        user_token=effective_google_token,
+                        refresh_token=current_user.google_refresh_token,
+                        description=booking_in.description,
+                        send_updates='all'
+                    )
+                    if not success:
+                        logger.error(f"Failed to update existing Google event {google_event_id} for user {current_user.email}")
+                else:
+                    # STANDARD BOOKING: Create new event
+                    from app.utils.google_calendar import create_event
+                    meet_link, calendar_link, google_event_id = create_event(
+                        subject=booking_in.subject,
+                        start_time=booking_in.start_time,
+                        end_time=booking_in.end_time,
+                        attendees_emails=attendee_emails,
+                        user_token=effective_google_token,
+                        refresh_token=current_user.google_refresh_token,
+                        description=booking_in.description,
+                        send_updates='all',
+                        additional_dates=booking_in.additional_dates
+                    )
                 
                 if not google_event_id:
-                    logger.error(f"Google Calendar event creation returned None for user {current_user.email}")
+                    logger.error(f"Google Calendar integration failed for user {current_user.email}")
                     raise HTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail="Failed to create Google Calendar event. Please check your Google permissions."
+                        detail="Failed to integrate with Google Calendar. Please check your permissions."
                     )
             except Exception as e:
-                logger.error(f"Critical error during Google Calendar event creation: {str(e)}")
+                logger.error(f"Critical error during Google Calendar integration: {str(e)}")
                 if isinstance(e, HTTPException):
                     raise e
                 raise HTTPException(
@@ -520,7 +539,8 @@ def update_booking(
                 user_token=effective_google_token,
                 refresh_token=current_user.google_refresh_token,
                 description=booking_in.description if booking_in.description is not None else db_booking.description,
-                send_updates='all'
+                send_updates='all',
+                location=room.name
             )
 
         # 8. Update DB
@@ -531,6 +551,7 @@ def update_booking(
         hydrated_attendees = booking_crud.hydrate_attendees(session, updated_booking.attendees_list)
         response_data = BookingResponse.model_validate(updated_booking)
         response_data.attendees = hydrated_attendees
+        response_data.meet_link = updated_booking.meet_link # Explicitly ensuring meet_link is present
 
         broadcast_payload = {
             "type": "booking_updated",

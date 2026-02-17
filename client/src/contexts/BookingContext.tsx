@@ -9,6 +9,8 @@ interface BookingFormState {
   subject: string;
   description: string;
   selectedRoom: Room | null;
+  googleEventId?: string;
+  meetLink?: string;
 }
 
 interface BookingContextType {
@@ -25,6 +27,8 @@ const initialState: BookingFormState = {
   subject: "",
   description: "",
   selectedRoom: null,
+  googleEventId: undefined,
+  meetLink: undefined,
 };
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
