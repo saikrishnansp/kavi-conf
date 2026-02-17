@@ -35,8 +35,8 @@ import {
   Users,
   AlertTriangle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Helper to parse time string "HH:mm" to Date object on a specific date
 const setDateTime = (date: Date, timeStr: string) => {
@@ -58,6 +58,7 @@ const Book = () => {
   const { form, setForm, resetForm } = useBookingForm();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const {
     dates,
@@ -72,6 +73,22 @@ const Book = () => {
   const [loadingText, setLoadingText] = useState("CONFIRM BOOKING");
   const [lastCreatedBooking, setLastCreatedBooking] = useState<BookingResponse | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+
+  // Pre-fill form from location state (e.g., from Agenda page)
+  useEffect(() => {
+    if (location.state?.prefill) {
+      const { prefill } = location.state;
+      setForm({
+        ...form,
+        subject: prefill.subject || subject,
+        dates: prefill.dates || dates,
+        startTime: prefill.startTime || startTime,
+        endTime: prefill.endTime || endTime,
+      });
+      // Clear state after pre-filling
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, setForm]);
 
   // 1. Fetch Rooms
   const { data: roomsList } = useQuery({
@@ -154,6 +171,7 @@ const Book = () => {
       setLastCreatedBooking(data);
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
       queryClient.invalidateQueries({ queryKey: ["publicBookings"] });
+      queryClient.invalidateQueries({ queryKey: ["agenda"] });
     },
   });
 
@@ -176,42 +194,27 @@ const Book = () => {
     setIsBooking(true);
     setLoadingText(MOTIVATIONAL_PHRASES[Math.floor(Math.random() * MOTIVATIONAL_PHRASES.length)]);
     
-    let successCount = 0;
-    let failCount = 0;
-    let lastSuccess: BookingResponse | null = null;
+    // Sort dates to ensure the first one is indeed the start
+    const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime());
+    const firstDate = sortedDates[0];
+    const otherDates = sortedDates.slice(1);
 
-    for (const date of dates) {
-      const start = setDateTime(date, startTime).toISOString();
-      const end = setDateTime(date, endTime).toISOString();
+    const start = setDateTime(firstDate, startTime).toISOString();
+    const end = setDateTime(firstDate, endTime).toISOString();
 
-      const bookingData: BookingCreate = {
-        room_id: selectedRoom.room_id,
-        start_time: start,
-        end_time: end,
-        subject: subject,
-        description: description,
-        attendees: attendees,
-      };
+    const bookingData: BookingCreate = {
+      room_id: selectedRoom.room_id,
+      start_time: start,
+      end_time: end,
+      subject: subject,
+      description: description,
+      attendees: attendees,
+      additional_dates: otherDates.map(d => d.toISOString()),
+    };
 
-      try {
-        const result = await createBookingMutation.mutateAsync(bookingData);
-        lastSuccess = result;
-        successCount++;
-      } catch (error: any) {
-        console.error("Booking failed", error);
-        failCount++;
-        toast({
-          title: `Booking Failed for ${format(date, "MMM d")}`,
-          description: error.message || "Unknown error",
-          variant: "destructive",
-        });
-      }
-    }
-
-    setIsBooking(false);
-    setLoadingText("CONFIRM BOOKING");
-
-    if (successCount > 0) {
+    try {
+      const result = await createBookingMutation.mutateAsync(bookingData);
+      
       const randomQuote =
         bookingSuccessQuote[
           Math.floor(Math.random() * bookingSuccessQuote.length)
@@ -219,21 +222,27 @@ const Book = () => {
 
       toast({
         title: "Booking Confirmed",
-        description: `${randomQuote} Successfully created ${successCount} booking(s). ${
-          failCount > 0 ? `${failCount} failed.` : ""
-        }`,
+        description: `${randomQuote} Successfully created ${dates.length} booking(s).`,
       });
       
-      if (lastSuccess) {
-        setLastCreatedBooking(lastSuccess);
-        setIsSuccessDialogOpen(true);
-        // Invalidate rooms to refresh availability grid
-        queryClient.invalidateQueries({ queryKey: ["rooms"] });
-      }
+      setLastCreatedBooking(result);
+      setIsSuccessDialogOpen(true);
+      // Invalidate queries to refresh availability
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["publicBookings"] });
+      queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      resetForm();
 
-      if (failCount === 0) {
-        resetForm();
-      }
+    } catch (error: any) {
+      console.error("Booking failed", error);
+      toast({
+        title: "Booking Failed",
+        description: error.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBooking(false);
+      setLoadingText("CONFIRM BOOKING");
     }
   };
 

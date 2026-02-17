@@ -3,15 +3,9 @@
 // Auth Types
 export interface UserCreate {
   email: string;
-  password: string;
   employee_id: string;
   full_name?: string;
   position?: string;
-}
-
-export interface UserLogin {
-  email: string;
-  password: string;
 }
 
 export interface UserResponse {

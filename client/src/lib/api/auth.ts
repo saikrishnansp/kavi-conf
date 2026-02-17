@@ -8,8 +8,12 @@ import {
 
 export const authApi = {
   getGoogleOAuthUrl: () => `${API_URL}/auth/login/google`,
-  login: async (data: UserLogin): Promise<Token> => {
-    const response = await api.post<Token>("/auth/login", data);
+  requestOtp: async (email: string): Promise<{ message: string }> => {
+    const response = await api.post("/auth/request-otp", { email });
+    return response.data;
+  },
+  verifyOtp: async (email: string, otp: string): Promise<Token> => {
+    const response = await api.post<Token>("/auth/verify-otp", { email, otp });
     return response.data;
   },
   register: async (data: UserCreate): Promise<UserResponse> => {

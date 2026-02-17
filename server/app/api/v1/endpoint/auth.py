@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import Session, select
 from typing import Annotated
-from datetime import datetime
+from datetime import datetime, timedelta
+import random
+import traceback
+from app.utils.logging import logger
 from app.core.dbsession import get_session
-from app.schema.auth import UserCreate, UserLogin, Token, UserResponse, UserUpdate
+from app.schema.auth import UserCreate, Token, UserResponse, UserUpdate, OTPRequest, OTPVerify
 from app.api.v1.crud import user as user_crud
 from app.core.security import create_access_token, get_current_user
 from app.db_models.user import User
@@ -18,9 +21,9 @@ from fastapi_sso.sso.google import GoogleSSO
 settings = get_settings()
 
 def get_google_sso() -> GoogleSSO:
-    # CRITICAL FIX: Hardcode the redirect_uri to ensure consistency
+    # CRITICAL FIX: Use the setting to ensure consistency
     # This prevents fastapi-sso from auto-detecting and potentially using 127.0.0.1
-    redirect_uri = "http://localhost:8000/api/v1/auth/callback/google"
+    redirect_uri = settings.GOOGLE_REDIRECT_URI
     
     return GoogleSSO(
         client_id=settings.GOOGLE_CLIENT_ID,
@@ -63,23 +66,65 @@ def register(user_in: UserCreate, session: Annotated[Session, Depends(get_sessio
     return created_user
 
 
-@router.post("/login", response_model=Token)
-def login(user_in: UserLogin, session: Annotated[Session, Depends(get_session)]):
+@router.post("/request-otp")
+def request_otp(otp_in: OTPRequest, session: Annotated[Session, Depends(get_session)]):
     """
-    Login user and return access token.
+    Generate and "send" an OTP to the user's email.
     """
-    user = user_crud.authenticate_user(
-        session, email=user_in.email, password=user_in.password
-    )
+    user = user_crud.get_user_by_email(session, email=otp_in.email)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email. Please register first.",
         )
 
+    # Generate 6-digit OTP
+    otp_code = f"{random.randint(100000, 999999)}"
+    user.otp_code = otp_code
+    user.otp_expires_at = datetime.now(IST) + timedelta(minutes=5)
+
+    session.add(user)
+    session.commit()
+
+    # MOCK EMAIL: Print to console
+    print("\n" + "="*50)
+    print(f"--- OTP for {user.email}: {otp_code} ---")
+    print("="*50 + "\n")
+
+    return {"message": "OTP sent"}
+
+
+@router.post("/verify-otp", response_model=Token)
+def verify_otp(verify_in: OTPVerify, session: Annotated[Session, Depends(get_session)]):
+    """
+    Verify OTP and return access token.
+    """
+    user = user_crud.get_user_by_email(session, email=verify_in.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if not user.otp_code or user.otp_code != verify_in.otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP code",
+        )
+
+    if not user.otp_expires_at or user.otp_expires_at < datetime.now(IST):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP has expired. Please request a new one.",
+        )
+
+    # Valid OTP: Clear it and issue token
+    user.otp_code = None
+    user.otp_expires_at = None
+    session.add(user)
+    session.commit()
+
     access_token = create_access_token(subject=user.employee_id)
-    print(f"access token: {access_token}")
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -111,46 +156,57 @@ async def google_callback(
     """
     Handle Google login callback.
     """
-    async with sso:
-        user_sso = await sso.verify_and_process(request)
-    
-    if not user_sso:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Google authentication failed"
-        )
-    
-    # Check if user exists in database
-    user = user_crud.get_user_by_email(session, email=user_sso.email)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No account found. Please register with this email first."
-        )
-    
-    # Save refresh token if provided
-    if sso.refresh_token:
-        user.google_refresh_token = sso.refresh_token
-        session.add(user)
-        session.commit()
-        session.refresh(user)
+    try:
+        async with sso:
+            user_sso = await sso.verify_and_process(request)
+        
+        if not user_sso:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Google authentication failed"
+            )
+        
+        # Check if user exists in database
+        logger.info(f"Searching for user: {user_sso.email}")
+        user = user_crud.get_user_by_email(session, email=user_sso.email)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No account found. Please register with this email first."
+            )
+        
+        # Save refresh token if provided
+        if sso.refresh_token:
+            user.google_refresh_token = sso.refresh_token
+            session.add(user)
+            session.commit()
+            session.refresh(user)
 
-    # Include the google access token in our internal JWT
-    access_token = create_access_token(
-        subject=user.employee_id, 
-        google_access_token=sso.access_token
-    )
-    
-    # Redirect to frontend with token
-    from fastapi.responses import RedirectResponse
-    # Use environment variable or default for frontend URL if possible
-    frontend_url = "http://localhost:5173" 
-    
-    # Append tokens to fragment (#) so they are not sent to servers in subsequent requests 
-    # and can be read by the frontend.
-    # sso.access_token is set on the sso object after verify_and_process
-    redirect_url = f"{frontend_url}/book#token={access_token}&google_token={sso.access_token}"
-    return RedirectResponse(url=redirect_url)
+        # Include the google access token in our internal JWT
+        access_token = create_access_token(
+            subject=user.employee_id, 
+            google_access_token=sso.access_token
+        )
+        
+        # Redirect to frontend with token
+        from fastapi.responses import RedirectResponse
+        # Use environment variable or default for frontend URL from settings
+        frontend_url = settings.FRONTEND_URL 
+        
+        # Append tokens to fragment (#) so they are not sent to servers in subsequent requests 
+        # and can be read by the frontend.
+        # sso.access_token is set on the sso object after verify_and_process
+        redirect_url = f"{frontend_url}/agenda#token={access_token}&google_token={sso.access_token}"
+        return RedirectResponse(url=redirect_url)
+    except Exception as e:
+        logger.error(f"CRITICAL ERROR in google_callback: {str(e)}")
+        traceback.print_exc()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Authentication error: {str(e)}"
+        )
 
 @router.post("/logout")
 def logout():

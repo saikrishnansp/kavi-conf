@@ -12,33 +12,70 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState<"email" | "otp">("email");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login, loginWithToken, isLoading, isAuthenticated } = useAuth();
+  const { verifyOtp, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/book");
+      navigate("/agenda");
     }
   }, [isAuthenticated, navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!email) {
       toast({
-        title: "MISSING CREDENTIALS",
-        description: "Please enter email and password",
+        title: "MISSING EMAIL",
+        description: "Please enter your email address",
         variant: "destructive",
       });
       return;
     }
+    
+    setIsSubmitting(true);
     try {
-      await login({ email, password });
+      await authApi.requestOtp(email);
+      setStep("otp");
+      toast({
+        title: "OTP SENT",
+        description: "Check the server console (mock email) for your 6-digit code.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "REQUEST FAILED",
+        description: error.response?.data?.detail || "Could not send OTP",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp) {
+      toast({
+        title: "MISSING OTP",
+        description: "Please enter the 6-digit code",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      await verifyOtp(email, otp);
+      // AuthContext will handle redirect via useEffect
     } catch (error) {
-      // Error handled in login function
+      // Error handled in verifyOtp
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -47,6 +84,8 @@ const Login = () => {
     const googleLoginUrl = `${import.meta.env.VITE_API_URL}/auth/login/google?access_type=offline&prompt=consent`;
     window.location.href = googleLoginUrl;
   };
+
+  const isLoading = isSubmitting || authLoading;
 
   return (
     <RetroBackground>
@@ -60,56 +99,75 @@ const Login = () => {
             <CardTitle className="font-pixel text-base">SYSTEM LOGIN</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label className="font-retro text-lg">EMAIL</Label>
-                <Input 
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="font-retro text-lg">PASSWORD</Label>
-                <div className="relative">
+            {step === "email" ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="font-retro text-lg">EMAIL ADDRESS</Label>
                   <Input 
-                    type={showPassword ? "text" : "password"}
-                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                    className="pr-10"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    required
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
                 </div>
-              </div>
-
-              <Button 
-                type="submit" 
-                variant="neon" 
-                size="lg" 
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? "AUTHENTICATING..." : (
-                  <>
-                    <LogIn className="h-4 w-4 mr-2" />
-                    LOGIN & BOOK
-                  </>
-                )}
-              </Button>
-            </form>
+                
+                <Button 
+                  type="submit" 
+                  variant="neon" 
+                  size="lg" 
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "SENDING..." : (
+                    <>
+                      <LogIn className="h-4 w-4 mr-2" />
+                      SEND OTP
+                    </>
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="font-retro text-lg">ENTER 6-DIGIT OTP</Label>
+                  <Input 
+                    type="text"
+                    placeholder="123456"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    maxLength={6}
+                    className="text-center text-2xl tracking-[0.5em] font-mono"
+                    required
+                    autoFocus
+                  />
+                  <p className="text-xs text-muted-foreground font-retro text-center">
+                    Sent to {email}
+                  </p>
+                </div>
+                
+                <Button 
+                  type="submit" 
+                  variant="neon" 
+                  size="lg" 
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "VERIFYING..." : "VERIFY & LOGIN"}
+                </Button>
+                
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  className="w-full text-xs font-retro"
+                  onClick={() => setStep("email")}
+                  disabled={isLoading}
+                >
+                  USE DIFFERENT EMAIL
+                </Button>
+              </form>
+            )}
 
             <div className="relative mt-6">
               <div className="absolute inset-0 flex items-center">

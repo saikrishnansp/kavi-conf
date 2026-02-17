@@ -48,4 +48,10 @@ export const usersApi = {
     const response = await api.get<{ total_employees: number }>("/users/count");
     return response.data;
   },
+
+  delete: async (employeeId: string, force: boolean = false): Promise<void> => {
+    await api.delete(`/users/${employeeId}`, {
+      params: { force },
+    });
+  },
 };

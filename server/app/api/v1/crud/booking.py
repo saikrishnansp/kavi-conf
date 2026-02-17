@@ -371,3 +371,22 @@ def get_bookings_in_range(
         .options(selectinload(Booking.attendees_list))
     )
     return session.exec(statement).all()
+
+
+def get_user_bookings_in_range(
+    session: Session, user_id: str, start_time: datetime, end_time: datetime
+) -> list[Booking]:
+    """
+    Get all confirmed bookings for a specific user within a time range.
+    """
+    statement = (
+        select(Booking)
+        .where(
+            Booking.user_id == user_id,
+            Booking.status != BookingStatus.CANCELLED,
+            Booking.end_time > start_time,
+            Booking.start_time < end_time,
+        )
+        .options(selectinload(Booking.attendees_list))
+    )
+    return session.exec(statement).all()

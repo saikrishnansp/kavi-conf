@@ -1,13 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 from functools import lru_cache
-import os
-
-import os
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
-from functools import lru_cache
-from pathlib import Path
+from pathlib import Path 
 
 # Get the directory where this file is located
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -24,6 +18,7 @@ class Settings(BaseSettings):
     # --- Core Project Settings ---
     PROJECT_NAME: str = "Reservation System"
     API_V1_STR: str = "/api/v1"
+    FRONTEND_URL: str = "http://localhost:5173"
     
     # --- Security & Database ---
     DATABASE_URL: str = "sqlite:///./conference.db"
@@ -35,7 +30,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173", 
         "http://localhost:3000",
-        "http://127.0.0.1:5173"
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000"
     ]
 
     # --- Logging ---

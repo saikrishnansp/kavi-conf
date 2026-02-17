@@ -31,7 +31,7 @@ export function RetroHeader({ userName }: RetroHeaderProps) {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to={isAuthenticated ? "/book" : "/"} className="flex items-center gap-3 group">
+          <Link to={isAuthenticated ? "/agenda" : "/"} className="flex items-center gap-3 group">
             <div className="relative">
               <Zap className="h-8 w-8 text-primary animate-glow-pulse" />
               <div className="absolute inset-0 blur-md bg-primary/30 rounded-full" />
@@ -45,6 +45,13 @@ export function RetroHeader({ userName }: RetroHeaderProps) {
           <nav className="hidden md:flex items-center gap-6">
             {isAuthenticated && (
               <>
+                <Link
+                  to="/agenda"
+                  className="font-retro text-xl text-foreground hover:text-primary transition-colors relative group"
+                >
+                  AGENDA
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+                </Link>
                 <Link
                   to="/book"
                   className="font-retro text-xl text-foreground hover:text-primary transition-colors relative group"
@@ -118,6 +125,13 @@ export function RetroHeader({ userName }: RetroHeaderProps) {
             <nav className="flex flex-col gap-4">
               {isAuthenticated && (
                 <>
+                  <Link
+                    to="/agenda"
+                    className="font-retro text-xl text-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    AGENDA
+                  </Link>
                   <Link
                     to="/book"
                     className="font-retro text-xl text-foreground hover:text-primary transition-colors py-2"

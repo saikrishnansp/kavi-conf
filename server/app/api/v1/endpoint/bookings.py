@@ -51,6 +51,83 @@ def get_bookings_range(
     return hydrated_items
 
 
+@router.get("/agenda")
+def get_agenda(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    x_google_token: Annotated[Optional[str], Header()] = None,
+    google_token_from_jwt: Annotated[Optional[str], Depends(get_google_token)] = None,
+):
+    """
+    Get user's daily agenda by merging DB bookings and Google events.
+    """
+    from app.utils.tz import IST
+    from app.utils.google_calendar import list_events
+    
+    # Calculate today's range in local time (IST)
+    now = datetime.now(IST)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    # 1. Fetch DB Bookings for user today
+    db_bookings = booking_crud.get_user_bookings_in_range(
+        session, 
+        user_id=current_user.employee_id, 
+        start_time=today_start, 
+        end_time=today_end
+    )
+    
+    # Collect existing google_event_ids from DB bookings
+    existing_google_ids = {b.google_event_id for b in db_bookings if b.google_event_id}
+    
+    # 2. Fetch Google Events
+    effective_google_token = x_google_token or google_token_from_jwt
+    google_events = []
+    if effective_google_token:
+        google_events = list_events(
+            user_token=effective_google_token,
+            start_time=today_start,
+            end_time=today_end,
+            refresh_token=current_user.google_refresh_token
+        )
+        
+    # 3. Merge and mark status
+    agenda = []
+    
+    # Step 1: Add all DB Bookings
+    for b in db_bookings:
+        agenda.append({
+            "id": b.google_event_id or f"internal-{b.id}",
+            "subject": b.subject,
+            "start_time": b.start_time.isoformat(),
+            "end_time": b.end_time.isoformat(),
+            "status": "BOOKED",
+            "room_id": b.room_id,
+            "booking_id": b.id
+        })
+    
+    # Step 2: Add Only Non-Duplicate Google Events as EXTERNAL
+    for g_event in google_events:
+        if g_event['id'] not in existing_google_ids:
+            # Check if it's a full-day event (only date, no time)
+            is_full_day = 'T' not in g_event['start']
+            
+            agenda.append({
+                "id": g_event['id'],
+                "subject": g_event['summary'],
+                "start_time": g_event['start'],
+                "end_time": g_event['end'],
+                "status": "EXTERNAL",
+                "show_book_btn": not is_full_day,
+                "location": g_event.get('location')
+            })
+            
+    # Sort by start time
+    agenda.sort(key=lambda x: x['start_time'])
+    
+    return agenda
+
+
 @router.get("", response_model=BookingListResponse)
 def get_bookings(
     session: Annotated[Session, Depends(get_session)],
@@ -154,35 +231,42 @@ def create_booking(
                 detail=f"Attendee count ({attendee_count}) exceeds room capacity ({room.capacity}).",
             )
 
-        # 5. Check Room Availability
-        is_available = booking_crud.check_availability(
-            session,
-            room_id=room.room_id,
-            start_time=booking_in.start_time,
-            end_time=booking_in.end_time,
-        )
+        # 5. Check Room Availability for all dates
+        all_time_slots = [(booking_in.start_time, booking_in.end_time)]
+        for d in booking_in.additional_dates:
+            # Sync the time parts from the primary start_time/end_time
+            s = d.replace(hour=booking_in.start_time.hour, minute=booking_in.start_time.minute, second=0, microsecond=0)
+            e = d.replace(hour=booking_in.end_time.hour, minute=booking_in.end_time.minute, second=0, microsecond=0)
+            all_time_slots.append((s, e))
 
-        if not is_available:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Room is already booked for this time slot.",
+        for s, e in all_time_slots:
+            is_available = booking_crud.check_availability(
+                session,
+                room_id=room.room_id,
+                start_time=s,
+                end_time=e,
             )
 
-        conflicts = booking_crud.check_attendee_availability(
-            session,
-            employee_ids=employee_ids,
-            start_time=booking_in.start_time,
-            end_time=booking_in.end_time,
-        )
+            if not is_available:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Room is already booked for the slot {s.strftime('%Y-%m-%d %H:%M')}.",
+                )
 
-        if conflicts:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"The following attendees have conflicting bookings: {', '.join(conflicts)}",
+            conflicts = booking_crud.check_attendee_availability(
+                session,
+                employee_ids=employee_ids,
+                start_time=s,
+                end_time=e,
             )
 
-        # 7. Create Booking
-        # Generate Google Calendar Event first to get links
+            if conflicts:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Some attendees have conflicting bookings for {s.strftime('%Y-%m-%d %H:%M')}: {', '.join(conflicts)}",
+                )
+
+        # 7. Create Google Calendar Event (Once for the entire series)
         meet_link, calendar_link, google_event_id = None, None, None
         if effective_google_token:
             from app.utils.google_calendar import create_event
@@ -200,7 +284,8 @@ def create_booking(
                     user_token=effective_google_token,
                     refresh_token=current_user.google_refresh_token,
                     description=booking_in.description,
-                    send_updates='all'
+                    send_updates='all',
+                    additional_dates=booking_in.additional_dates
                 )
                 
                 if not google_event_id:
@@ -217,42 +302,49 @@ def create_booking(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Google Calendar Integration Error: {str(e)}"
                 )
-        else:
-            from app.utils.logging import logger
-            logger.warning(f"Google token missing for user {current_user.email}, skipping Calendar event creation.")
 
-        new_booking = booking_crud.create_booking(
-            session,
-            booking_in,
-            user_id=current_user.employee_id,
-            resolved_attendees=resolved_attendees,
-            meet_link=meet_link,
-            calendar_link=calendar_link,
-            google_event_id=google_event_id,
-            commit=False,
-        )
+        # Create multiple database records
+        first_booking = None
+        for s, e in all_time_slots:
+            single_booking_in = booking_in.model_copy()
+            single_booking_in.start_time = s
+            single_booking_in.end_time = e
+            
+            new_booking = booking_crud.create_booking(
+                session,
+                single_booking_in,
+                user_id=current_user.employee_id,
+                resolved_attendees=resolved_attendees,
+                meet_link=meet_link,
+                calendar_link=calendar_link,
+                google_event_id=google_event_id,
+                commit=False,
+            )
+            if s == booking_in.start_time:
+                first_booking = new_booking
         
         # 8. Success - Delete Hold
         room_hold_crud.delete_hold(session, room.room_id, current_user.employee_id, commit=False)
         
-        # Sync refresh to ensure all fields are loaded before broadcasting
+        # Sync refresh
         session.flush()
 
-        # Prepare response data with hydration
-        hydrated_attendees = booking_crud.hydrate_attendees(session, new_booking.attendees_list)
-        response_data = BookingResponse.model_validate(new_booking)
+        # Prepare response data with hydration (using first booking created)
+        hydrated_attendees = booking_crud.hydrate_attendees(session, first_booking.attendees_list)
+        response_data = BookingResponse.model_validate(first_booking)
         response_data.attendees = hydrated_attendees
         
-        # Prepare broadcast payload before exiting transaction to ensure relationships are loaded
+        # Prepare broadcast payload for the main booking created
         broadcast_payload = {
             "type": "booking_created",
             "data": {
-                "booking_id": new_booking.id,
-                "room_id": new_booking.room_id,
-                "start_time": new_booking.start_time.isoformat(),
-                "end_time": new_booking.end_time.isoformat(),
-                "user_id": new_booking.user_id,
-                "status": new_booking.status
+                "booking_id": first_booking.id,
+                "room_id": first_booking.room_id,
+                "start_time": first_booking.start_time.isoformat(),
+                "end_time": first_booking.end_time.isoformat(),
+                "user_id": first_booking.user_id,
+                "status": first_booking.status,
+                "series_count": len(all_time_slots)
             }
         }
         
@@ -579,7 +671,8 @@ def cancel_booking(
             event_id=booking.google_event_id,
             user_token=effective_google_token,
             refresh_token=current_user.google_refresh_token,
-            send_updates='all'
+            send_updates='all',
+            booking_start_time=booking.start_time
         )
 
     cancelled_booking = booking_crud.cancel_booking(session, booking_id)

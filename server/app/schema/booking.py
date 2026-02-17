@@ -27,6 +27,7 @@ class BookingBase(BaseModel):
 class BookingCreate(BookingBase):
     attendees: List[str] = Field(..., min_length=1, max_length=50)
     attendee_count: Optional[int] = None
+    additional_dates: List[datetime] = []
 
     @field_validator("end_time")
     @classmethod

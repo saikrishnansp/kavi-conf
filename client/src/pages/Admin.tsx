@@ -262,7 +262,7 @@ const Admin = () => {
   });
 
   const deleteUserMutation = useMutation({
-    mutationFn: (employeeId: string) => authApi.deleteUser(employeeId),
+    mutationFn: (employeeId: string) => usersApi.delete(employeeId, false),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['usersCount'] });
@@ -271,13 +271,6 @@ const Admin = () => {
       toast({
         title: "EMPLOYEE REMOVED",
         description: "The employee has been deleted.",
-      });
-    },
-    onError: (error: { response?: { data?: { detail?: string } } }) => {
-      toast({
-        title: "ERROR",
-        description: error.response?.data?.detail || "Failed to delete employee",
-        variant: "destructive",
       });
     },
   });
@@ -345,9 +338,49 @@ const Admin = () => {
     setIsDeleteUserOpen(true);
   };
 
-  const handleConfirmDeleteUser = () => {
+  const handleConfirmDeleteUser = async () => {
     if (!selectedUser) return;
-    deleteUserMutation.mutate(selectedUser.employee_id);
+    
+    try {
+      await deleteUserMutation.mutateAsync(selectedUser.employee_id);
+    } catch (error: any) {
+      // Check if it's a 400 error due to active bookings
+      const detail = error.response?.data?.detail || "";
+      if (error.response?.status === 400 && detail.toLowerCase().includes("active bookings")) {
+        const confirmed = window.confirm(
+          "This user has active bookings. Do you want to force delete them? This will cancel all their upcoming meetings."
+        );
+        
+        if (confirmed) {
+          try {
+            await usersApi.delete(selectedUser.employee_id, true);
+            
+            // On success of force delete
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            queryClient.invalidateQueries({ queryKey: ['usersCount'] });
+            setIsDeleteUserOpen(false);
+            setSelectedUser(null);
+            
+            toast({
+              title: "EMPLOYEE REMOVED (FORCED)",
+              description: "The employee and all their active bookings have been deleted.",
+            });
+          } catch (forceError: any) {
+            toast({
+              title: "ERROR",
+              description: forceError.response?.data?.detail || "Failed to force delete employee",
+              variant: "destructive",
+            });
+          }
+        }
+      } else {
+        toast({
+          title: "ERROR",
+          description: detail || "Failed to delete employee",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const handleAddRoom = () => {

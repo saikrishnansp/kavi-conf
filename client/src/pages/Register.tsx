@@ -17,7 +17,6 @@ const Register = () => {
     try {
       const payload: UserCreate = {
         email: data.email,
-        password: data.password,
         employee_id: data.employee_id || "",
         full_name: data.full_name,
         position: data.position || "",

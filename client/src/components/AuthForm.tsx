@@ -14,21 +14,18 @@ interface AuthFormProps {
 
 export interface AuthFormData {
   email: string;
-  password: string;
   employee_id?: string;
   full_name?: string;
-   position?: string;
+  position?: string;
 }
 
 export function AuthForm({ mode, onSubmit, isLoading = false }: AuthFormProps) {
   const [formData, setFormData] = useState<AuthFormData>({
     email: "",
-    password: "",
     employee_id: "",
     full_name: "",
     position: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
@@ -145,45 +142,6 @@ export function AuthForm({ mode, onSubmit, isLoading = false }: AuthFormProps) {
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="password" className="font-retro text-lg">
-              PASSWORD *
-            </Label>
-            <div className="relative">
-              <Input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                minLength={8}
-                disabled={isLoading}
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-                disabled={isLoading}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-            {mode === "register" && (
-              <p className="text-xs text-muted-foreground font-retro">
-                MIN 8 CHARACTERS
-              </p>
-            )}
-          </div>
-
           <Button
             type="submit"
             variant="neon"
@@ -197,7 +155,7 @@ export function AuthForm({ mode, onSubmit, isLoading = false }: AuthFormProps) {
                 PROCESSING...
               </>
             ) : mode === "login" ? (
-              "LOGIN"
+              "SEND OTP"
             ) : (
               "CREATE ACCOUNT"
             )}

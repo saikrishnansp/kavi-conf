@@ -21,10 +21,8 @@ def get_user_by_employee_id(session: Session, employee_id: str) -> Optional[User
 
 
 def create_user(session: Session, user_create: UserCreate, commit: bool = True) -> User:
-    hashed_password = get_password_hash(user_create.password)
     db_user = User(
         email=user_create.email,
-        password_hash=hashed_password,
         full_name=user_create.full_name,
         position=user_create.position,
         employee_id=user_create.employee_id,
@@ -40,26 +38,12 @@ def update_user(
     session: Session, db_user: User, user_in: UserUpdate, commit: bool = True
 ) -> User:
     update_data = user_in.model_dump(exclude_unset=True)
-    if "password" in update_data and update_data["password"]:
-        hashed_password = get_password_hash(update_data["password"])
-        update_data["password_hash"] = hashed_password
-        del update_data["password"]
-
     db_user.sqlmodel_update(update_data)
     session.add(db_user)
     if commit:
         session.commit()
         session.refresh(db_user)
     return db_user
-
-
-def authenticate_user(session: Session, email: str, password: str) -> Optional[User]:
-    user = get_user_by_email(session, email)
-    if not user:
-        return None
-    if not verify_password(password, user.password_hash):
-        return None
-    return user
 
 
 def delete_user(session: Session, employee_id: str, commit: bool = True) -> bool:

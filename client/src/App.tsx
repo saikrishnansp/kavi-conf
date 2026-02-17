@@ -9,6 +9,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Agenda from "./pages/Agenda";
 import Book from "./pages/Book";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
@@ -36,6 +37,12 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 
+                <Route path="/agenda" element={
+                  <ProtectedRoute>
+                    <Agenda />
+                  </ProtectedRoute>
+                } />
+
                 <Route path="/book" element={
                   <ProtectedRoute>
                     <Book />

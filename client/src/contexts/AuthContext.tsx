@@ -1,6 +1,6 @@
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/lib/api/auth";
-import { UserLogin, UserResponse } from "@/types/api";
+import { UserResponse } from "@/types/api";
 import {
   createContext,
   ReactNode,
@@ -13,7 +13,7 @@ interface AuthContextType {
   user: UserResponse | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (data: UserLogin) => Promise<void>;
+  verifyOtp: (email: string, otp: string) => Promise<void>;
   loginWithToken: (token: string, googleToken?: string) => void;
   logout: () => void;
   token: string | null;
@@ -124,9 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, [token]);
 
-  const login = async (data: UserLogin) => {
+  const verifyOtp = async (email: string, otp: string) => {
     try {
-      const response = await authApi.login(data);
+      const response = await authApi.verifyOtp(email, otp);
       loginWithToken(response.access_token);
       toast({
         title: "Welcome back!",
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: error.response?.data?.detail || "Invalid credentials",
+        description: error.response?.data?.detail || "Invalid OTP",
         variant: "destructive",
       });
       throw error;
@@ -166,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
-        login,
+        verifyOtp,
         loginWithToken,
         logout,
         token,

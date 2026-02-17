@@ -9,10 +9,12 @@ class User(SQLModel, table=True):
 
     employee_id: str = Field(primary_key=True)
     email: str = Field(unique=True, index=True, nullable=False)
-    password_hash: str = Field(nullable=False)
+    password_hash: Optional[str] = Field(default=None, nullable=True)
     full_name: Optional[str] = Field(default=None)
     position: Optional[str] = Field(default=None)
     google_refresh_token: Optional[str] = Field(default=None)
+    otp_code: Optional[str] = Field(default=None)
+    otp_expires_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(IST))
 
     @property
