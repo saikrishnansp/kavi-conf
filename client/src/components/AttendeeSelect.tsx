@@ -26,11 +26,11 @@ interface AttendeeSelectProps {
   placeholder?: string;
 }
 
-const AttendeeSelect: React.FC<AttendeeSelectProps> = ({
+const AttendeeSelect = ({
   selectedEmails,
   onChange,
   placeholder = "Select attendees...",
-}) => {
+}: AttendeeSelectProps) => {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch] = useDebounce(searchValue, 300);

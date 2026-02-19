@@ -69,9 +69,9 @@ export function WebSocketProvider({
   });
 
   return (
-    <WebSocketContext.Provider value={{ status, lastMessage, send }}>
+    <WebSocketContext value={{ status, lastMessage, send }}>
       {children}
-    </WebSocketContext.Provider>
+    </WebSocketContext>
   );
 }
 

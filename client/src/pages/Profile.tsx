@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { RetroBackground } from "@/components/RetroBackground";
 import { RetroHeader } from "@/components/RetroHeader";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { User, Save, Loader2, Pencil } from "lucide-react";
+// import { User, Save, Loader2, Pencil } from "lucide-react";
+import { User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/lib/api/auth";
 
@@ -60,7 +61,7 @@ const Profile = () => {
     }
   };
 
-  const handleEdit = () => setIsEditing(true);
+  // const handleEdit = () => setIsEditing(true);
 
   return (
     <RetroBackground>
@@ -93,7 +94,7 @@ const Profile = () => {
                   <Label className="font-retro text-lg">POSITION</Label>
                   <Input name="position" value={profile.position} onChange={handleChange} placeholder="Your job title" disabled={!isEditing} className={!isEditing ? "opacity-90" : ""} />
                 </div>
-                {isEditing ? (
+                {/* {isEditing ? (
                   <Button type="submit" variant="neon" size="lg" className="w-full mt-6" disabled={isLoading}>
                     {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />SAVING...</> : <><Save className="h-4 w-4 mr-2" />SAVE PROFILE</>}
                   </Button>
@@ -101,7 +102,7 @@ const Profile = () => {
                   <Button type="button" variant="neon" size="lg" className="w-full mt-6" onClick={handleEdit}>
                     <Pencil className="h-4 w-4 mr-2" />EDIT PROFILE
                   </Button>
-                )}
+                )} */}
               </form>
             </CardContent>
           </Card>

@@ -43,9 +43,9 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const resetForm = () => setFormState(initialState);
 
   return (
-    <BookingContext.Provider value={{ form, setForm, resetForm }}>
+    <BookingContext value={{ form, setForm, resetForm }}>
       {children}
-    </BookingContext.Provider>
+    </BookingContext>
   );
 };
 

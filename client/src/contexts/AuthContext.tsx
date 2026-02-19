@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider
+    <AuthContext
       value={{
         user,
         isAuthenticated: !!user,
@@ -175,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </AuthContext.Provider>
+    </AuthContext>
   );
 }
 

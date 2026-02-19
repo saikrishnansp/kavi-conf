@@ -63,8 +63,4 @@ logs/
 curl.txt
 plan.md
 project_status.mmd
-*.png
 
-
-# Agent Memory
-GEMINI.md

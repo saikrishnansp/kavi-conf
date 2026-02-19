@@ -93,6 +93,7 @@ export function AuthForm({ mode, onSubmit, isLoading = false }: AuthFormProps) {
                   id="employee_id"
                   name="employee_id"
                   type="text"
+                  placeholder="DATS-XXXX | TES-XXXX"
                   value={formData.employee_id}
                   onChange={handleChange}
                   required
