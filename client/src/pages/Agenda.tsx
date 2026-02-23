@@ -76,7 +76,7 @@ const Agenda = () => {
   const workingHoursAgenda = agenda?.filter(item => isWorkingHours(item.start_time)) || [];
   
   // Debug mode to see what data is triggering flags
-  console.log("Agenda Items:", agenda);
+  // console.log("Agenda Items:", agenda);
 
   const hasMorningEvents = agenda?.some(item => {
     const start = parseISO(item.start_time);

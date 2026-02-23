@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, 
 from sqlmodel import Session, select
 from datetime import datetime
 from typing import Annotated, Optional
+import traceback
 
 from app.core.dbsession import get_session, transaction_scope
 from app.core.security import get_current_user, get_google_token
@@ -175,212 +176,223 @@ def create_booking(
     # Use header if provided, otherwise fallback to JWT payload
     effective_google_token = x_google_token or google_token_from_jwt
 
-    with transaction_scope(session):
-        room = room_crud.get_room_by_id(session, booking_in.room_id)
-        if not room:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Room '{booking_in.room_id}' not found.",
-            )
+    try:
+        with transaction_scope(session):
+            room = room_crud.get_room_by_id(session, booking_in.room_id)
+            if not room:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Room '{booking_in.room_id}' not found.",
+                )
 
-        # LOCK the Room hierarchy
-        hierarchy_ids = room_crud.get_room_hierarchy(session, room.room_id)
-        from app.db_models.room import Room
-        session.exec(
-            select(Room).where(Room.room_id.in_(hierarchy_ids)).with_for_update()
-        ).all()
+            # LOCK the Room hierarchy
+            hierarchy_ids = room_crud.get_room_hierarchy(session, room.room_id)
+            from app.db_models.room import Room
+            session.exec(
+                select(Room).where(Room.room_id.in_(hierarchy_ids)).with_for_update()
+            ).all()
 
-        if not room.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Room is not active and cannot be booked.",
-            )
+            if not room.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Room is not active and cannot be booked.",
+                )
 
-        # 2. Check Room Hold
-        if room_hold_crud.is_room_held(session, room.room_id, current_user.employee_id):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Room is currently being booked by another user.",
-            )
-
-        # Create/Update hold
-        room_hold_crud.create_hold(session, room.room_id, current_user.employee_id, commit=False)
-
-        # 3. Resolve Attendees and check availability
-        resolved_attendees = booking_crud.resolve_attendees(
-            session, booking_in.attendees
-        )
-        
-        # Ensure organizer is in the attendee list
-        organizer_found = any(a["email"] == current_user.email for a in resolved_attendees)
-        if not organizer_found:
-            resolved_attendees.append({
-                "email": current_user.email,
-                "full_name": current_user.full_name,
-                "employee_id": current_user.employee_id,
-                "position": current_user.position,
-            })
-
-        employee_ids = [a["employee_id"] for a in resolved_attendees]
-        attendee_count = len(resolved_attendees)
-
-        # 4. Room Capacity Validation
-        if attendee_count > room.capacity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Attendee count ({attendee_count}) exceeds room capacity ({room.capacity}).",
-            )
-
-        # 5. Check Room Availability for all dates
-        all_time_slots = [(booking_in.start_time, booking_in.end_time)]
-        for d in booking_in.additional_dates:
-            # Sync the time parts from the primary start_time/end_time
-            s = d.replace(hour=booking_in.start_time.hour, minute=booking_in.start_time.minute, second=0, microsecond=0)
-            e = d.replace(hour=booking_in.end_time.hour, minute=booking_in.end_time.minute, second=0, microsecond=0)
-            all_time_slots.append((s, e))
-
-        for s, e in all_time_slots:
-            is_available = booking_crud.check_availability(
-                session,
-                room_id=room.room_id,
-                start_time=s,
-                end_time=e,
-            )
-
-            if not is_available:
+            # 2. Check Room Hold
+            if room_hold_crud.is_room_held(session, room.room_id, current_user.employee_id):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Room is already booked for the slot {s.strftime('%Y-%m-%d %H:%M')}.",
+                    detail="Room is currently being booked by another user.",
                 )
 
-            conflicts = booking_crud.check_attendee_availability(
-                session,
-                employee_ids=employee_ids,
-                start_time=s,
-                end_time=e,
+            # Create/Update hold
+            room_hold_crud.create_hold(session, room.room_id, current_user.employee_id, commit=False)
+
+            # 3. Resolve Attendees and check availability
+            resolved_attendees = booking_crud.resolve_attendees(
+                session, booking_in.attendees
             )
-
-            if conflicts:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Some attendees have conflicting bookings for {s.strftime('%Y-%m-%d %H:%M')}: {', '.join(conflicts)}",
-                )
-
-        # 7. Google Calendar Handling
-        meet_link, calendar_link, google_event_id = booking_in.meet_link, None, booking_in.google_event_id
-        
-        if effective_google_token:
-            from app.utils.logging import logger
-            attendee_emails = [a["email"] for a in resolved_attendees]
-            if current_user.email not in attendee_emails:
-                attendee_emails.append(current_user.email)
-
-            try:
-                if google_event_id:
-                    # SEAMLESS BOOKING: Update existing event
-                    from app.utils.google_calendar import update_event
-                    success = update_event(
-                        event_id=google_event_id,
-                        subject=booking_in.subject,
-                        start_time=booking_in.start_time,
-                        end_time=booking_in.end_time,
-                        attendees_emails=attendee_emails,
-                        user_token=effective_google_token,
-                        refresh_token=current_user.google_refresh_token,
-                        description=booking_in.description,
-                        send_updates='all'
-                    )
-                    if not success:
-                        logger.error(f"Failed to update existing Google event {google_event_id} for user {current_user.email}")
-                else:
-                    # STANDARD BOOKING: Create new event
-                    from app.utils.google_calendar import create_event
-                    meet_link, calendar_link, google_event_id = create_event(
-                        subject=booking_in.subject,
-                        start_time=booking_in.start_time,
-                        end_time=booking_in.end_time,
-                        attendees_emails=attendee_emails,
-                        user_token=effective_google_token,
-                        refresh_token=current_user.google_refresh_token,
-                        description=booking_in.description,
-                        send_updates='all',
-                        additional_dates=booking_in.additional_dates
-                    )
-                
-                if not google_event_id:
-                    logger.error(f"Google Calendar integration failed for user {current_user.email}")
-                    raise HTTPException(
-                        status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail="Failed to integrate with Google Calendar. Please check your permissions."
-                    )
-            except Exception as e:
-                logger.error(f"Critical error during Google Calendar integration: {str(e)}")
-                if isinstance(e, HTTPException):
-                    raise e
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Google Calendar Integration Error: {str(e)}"
-                )
-
-        # Create multiple database records
-        first_booking = None
-        for s, e in all_time_slots:
-            single_booking_in = booking_in.model_copy()
-            single_booking_in.start_time = s
-            single_booking_in.end_time = e
             
-            new_booking = booking_crud.create_booking(
-                session,
-                single_booking_in,
-                user_id=current_user.employee_id,
-                resolved_attendees=resolved_attendees,
-                meet_link=meet_link,
-                calendar_link=calendar_link,
-                google_event_id=google_event_id,
-                commit=False,
-            )
-            if s == booking_in.start_time:
-                first_booking = new_booking
-        
-        # 8. Success - Delete Hold
-        room_hold_crud.delete_hold(session, room.room_id, current_user.employee_id, commit=False)
-        
-        # Sync refresh
-        session.flush()
+            # Ensure organizer is in the attendee list
+            organizer_found = any(a["email"] == current_user.email for a in resolved_attendees)
+            if not organizer_found:
+                resolved_attendees.append({
+                    "email": current_user.email,
+                    "full_name": current_user.full_name,
+                    "employee_id": current_user.employee_id,
+                    "position": current_user.position,
+                })
 
-        # Prepare response data with hydration (using first booking created)
-        hydrated_attendees = booking_crud.hydrate_attendees(session, first_booking.attendees_list)
-        response_data = BookingResponse.model_validate(first_booking)
-        response_data.attendees = hydrated_attendees
-        
-        # Prepare broadcast payload for the main booking created
-        broadcast_payload = {
-            "type": "booking_created",
-            "data": {
-                "booking_id": first_booking.id,
-                "room_id": first_booking.room_id,
-                "start_time": first_booking.start_time.isoformat(),
-                "end_time": first_booking.end_time.isoformat(),
-                "user_id": first_booking.user_id,
-                "status": first_booking.status,
-                "series_count": len(all_time_slots)
+            employee_ids = [a["employee_id"] for a in resolved_attendees]
+            attendee_count = len(resolved_attendees)
+
+            # 4. Room Capacity Validation
+            if attendee_count > room.capacity:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Attendee count ({attendee_count}) exceeds room capacity ({room.capacity}).",
+                )
+
+            # 5. Check Room Availability for all dates
+            all_time_slots = [(booking_in.start_time, booking_in.end_time)]
+            for d in booking_in.additional_dates:
+                # Sync the time parts from the primary start_time/end_time
+                s = d.replace(hour=booking_in.start_time.hour, minute=booking_in.start_time.minute, second=0, microsecond=0)
+                e = d.replace(hour=booking_in.end_time.hour, minute=booking_in.end_time.minute, second=0, microsecond=0)
+                all_time_slots.append((s, e))
+
+            for s, e in all_time_slots:
+                is_available = booking_crud.check_availability(
+                    session,
+                    room_id=room.room_id,
+                    start_time=s,
+                    end_time=e,
+                )
+
+                if not is_available:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Room is already booked for the slot {s.strftime('%Y-%m-%d %H:%M')}.",
+                    )
+
+                conflicts = booking_crud.check_attendee_availability(
+                    session,
+                    employee_ids=employee_ids,
+                    start_time=s,
+                    end_time=e,
+                )
+
+                if conflicts:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Some attendees have conflicting bookings for {s.strftime('%Y-%m-%d %H:%M')}: {', '.join(conflicts)}",
+                    )
+
+            # 7. Google Calendar Handling
+            meet_link, calendar_link, google_event_id = booking_in.meet_link, None, booking_in.google_event_id
+            
+            if effective_google_token:
+                from app.utils.logging import logger
+                attendee_emails = [a["email"] for a in resolved_attendees]
+                if current_user.email not in attendee_emails:
+                    attendee_emails.append(current_user.email)
+
+                try:
+                    if google_event_id:
+                        # SEAMLESS BOOKING: Update existing event
+                        from app.utils.google_calendar import update_event
+                        success = update_event(
+                            event_id=google_event_id,
+                            subject=booking_in.subject,
+                            start_time=booking_in.start_time,
+                            end_time=booking_in.end_time,
+                            attendees_emails=attendee_emails,
+                            user_token=effective_google_token,
+                            refresh_token=current_user.google_refresh_token,
+                            description=booking_in.description,
+                            send_updates='all'
+                        )
+                        if not success:
+                            logger.error(f"Failed to update existing Google event {google_event_id} for user {current_user.email}")
+                    else:
+                        # STANDARD BOOKING: Create new event
+                        from app.utils.google_calendar import create_event
+                        meet_link, calendar_link, google_event_id = create_event(
+                            subject=booking_in.subject,
+                            start_time=booking_in.start_time,
+                            end_time=booking_in.end_time,
+                            attendees_emails=attendee_emails,
+                            user_token=effective_google_token,
+                            refresh_token=current_user.google_refresh_token,
+                            description=booking_in.description,
+                            send_updates='all',
+                            additional_dates=booking_in.additional_dates
+                        )
+                    
+                    if not google_event_id:
+                        logger.error(f"Google Calendar integration failed for user {current_user.email}")
+                        raise HTTPException(
+                            status_code=status.HTTP_502_BAD_GATEWAY,
+                            detail="Failed to integrate with Google Calendar. Please check your permissions."
+                        )
+                except Exception as e:
+                    logger.error(f"Critical error during Google Calendar integration: {str(e)}")
+                    if isinstance(e, HTTPException):
+                        raise e
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Google Calendar Integration Error: {str(e)}"
+                    )
+
+            # Create multiple database records
+            first_booking = None
+            for s, e in all_time_slots:
+                single_booking_in = booking_in.model_copy()
+                single_booking_in.start_time = s
+                single_booking_in.end_time = e
+                
+                new_booking = booking_crud.create_booking(
+                    session,
+                    single_booking_in,
+                    user_id=current_user.employee_id,
+                    resolved_attendees=resolved_attendees,
+                    meet_link=meet_link,
+                    calendar_link=calendar_link,
+                    google_event_id=google_event_id,
+                    commit=False,
+                )
+                if s == booking_in.start_time:
+                    first_booking = new_booking
+            
+            # 8. Success - Delete Hold
+            room_hold_crud.delete_hold(session, room.room_id, current_user.employee_id, commit=False)
+            
+            # Sync refresh
+            session.flush()
+
+            # Prepare response data with hydration (using first booking created)
+            hydrated_attendees = booking_crud.hydrate_attendees(session, first_booking.attendees_list)
+            response_data = BookingResponse.model_validate(first_booking)
+            response_data.attendees = hydrated_attendees
+            
+            # Prepare broadcast payload for the main booking created
+            broadcast_payload = {
+                "type": "booking_created",
+                "data": {
+                    "booking_id": first_booking.id,
+                    "room_id": first_booking.room_id,
+                    "start_time": first_booking.start_time.isoformat(),
+                    "end_time": first_booking.end_time.isoformat(),
+                    "user_id": first_booking.user_id,
+                    "status": first_booking.status,
+                    "series_count": len(all_time_slots)
+                }
             }
-        }
-        
-        hold_release_payload = {
-            "type": "hold_released",
-            "data": {
-                "room_id": new_booking.room_id,
-                "user_id": current_user.employee_id,
-                "reason": "booking_finalized"
+            
+            hold_release_payload = {
+                "type": "hold_released",
+                "data": {
+                    "room_id": new_booking.room_id,
+                    "user_id": current_user.employee_id,
+                    "reason": "booking_finalized"
+                }
             }
-        }
 
-    # Broadcast after transaction commit
-    background_tasks.add_task(manager.broadcast, broadcast_payload)
-    background_tasks.add_task(manager.broadcast, hold_release_payload)
+        # Broadcast after transaction commit
+        background_tasks.add_task(manager.broadcast, broadcast_payload)
+        background_tasks.add_task(manager.broadcast, hold_release_payload)
 
-    return response_data
+        return response_data
+
+    except Exception as e:
+        from app.utils.logging import logger
+        logger.error(traceback.format_exc())
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error: {str(e)}"
+        )
 
 
 # ==========================================

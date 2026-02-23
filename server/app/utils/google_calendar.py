@@ -14,7 +14,9 @@ FOOTER_ADDRESS = """
 
 📍 LOCATION:
 1st floor, Hari Krupa, 71/1, McNichols Rd, Dasspuram, Chetpet, Chennai, Tamil Nadu 600031.
-[https://maps.app.goo.gl/vTe7542HSt37uQrS7](https://maps.app.goo.gl/vTe7542HSt37uQrS7)"""
+[https://maps.app.goo.gl/vTe7542HSt37uQrS7](https://maps.app.goo.gl/vTe7542HSt37uQrS7)
+
+"""
 
 def get_calendar_service(user_token: str, refresh_token: Optional[str] = None):
     """

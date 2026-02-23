@@ -10,6 +10,9 @@ DATABASE_URL = settings.DATABASE_URL
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set in environment variables.")
 
+if not DATABASE_URL.startswith("mysql+pymysql"):
+    print(f"⚠️ Warning: DATABASE_URL does not use mysql+pymysql dialect. Current: {DATABASE_URL.split(':', 1)[0]}")
+
 # Create engine with connection pooling
 engine = create_engine(
     DATABASE_URL,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlmodel import Session, select
 from typing import Annotated
 from datetime import datetime, timedelta
@@ -16,6 +16,7 @@ from app.db_models.enums import BookingStatus
 from app.core.config import get_settings
 from app.utils.tz import IST
 from app.utils.rate_limit import rate_limit_auth
+from app.utils.email import send_otp_email
 from fastapi_sso.sso.google import GoogleSSO
 
 settings = get_settings()
@@ -67,7 +68,11 @@ def register(user_in: UserCreate, session: Annotated[Session, Depends(get_sessio
 
 
 @router.post("/request-otp")
-def request_otp(otp_in: OTPRequest, session: Annotated[Session, Depends(get_session)]):
+def request_otp(
+    otp_in: OTPRequest, 
+    session: Annotated[Session, Depends(get_session)],
+    background_tasks: BackgroundTasks
+):
     """
     Generate and "send" an OTP to the user's email.
     """
@@ -86,10 +91,8 @@ def request_otp(otp_in: OTPRequest, session: Annotated[Session, Depends(get_sess
     session.add(user)
     session.commit()
 
-    # MOCK EMAIL: Print to console
-    print("\n" + "="*50)
-    print(f"--- OTP for {user.email}: {otp_code} ---")
-    print("="*50 + "\n")
+    # SEND EMAIL in background
+    background_tasks.add_task(send_otp_email, user.email, otp_code)
 
     return {"message": "OTP sent"}
 
@@ -112,7 +115,14 @@ def verify_otp(verify_in: OTPVerify, session: Annotated[Session, Depends(get_ses
             detail="Invalid OTP code",
         )
 
-    if not user.otp_expires_at or user.otp_expires_at < datetime.now(IST):
+    # Ensure timezone safety when comparing database times
+    expires_at = user.otp_expires_at
+    if expires_at is not None:
+        # If the database stripped the timezone, safely attach IST back to it
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=IST)
+
+    if not expires_at or expires_at < datetime.now(IST):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="OTP has expired. Please request a new one.",
