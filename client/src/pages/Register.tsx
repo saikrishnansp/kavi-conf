@@ -2,7 +2,7 @@ import { AuthForm, AuthFormData } from "@/components/AuthForm";
 import { RetroBackground } from "@/components/RetroBackground";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/lib/api/auth";
-import type { UserCreate, UserResponse } from "@/types/api";
+import type { UserCreate } from "@/types/api";
 import { Zap } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -33,7 +33,8 @@ const Register = () => {
     } catch (error: any) {
       toast({
         title: "REGISTRATION FAILED",
-        description: error.message || "Could not create account",
+        description:
+          error.response?.data?.detail || error.message || "Could not create account",
         variant: "destructive",
       });
     } finally {

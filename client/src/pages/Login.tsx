@@ -140,7 +140,6 @@ const Login = () => {
                     maxLength={6}
                     className="text-center text-2xl tracking-[0.5em] font-mono"
                     required
-                    autoFocus
                   />
                   <p className="text-xs text-muted-foreground font-retro text-center">
                     Sent to {email}

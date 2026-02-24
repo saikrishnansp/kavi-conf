@@ -63,7 +63,14 @@ def register(user_in: UserCreate, session: Annotated[Session, Depends(get_sessio
         )
 
     # Create new user
-    created_user = user_crud.create_user(session, user_create=user_in)
+    try:
+        created_user = user_crud.create_user(session, user_create=user_in)
+    except Exception as e:
+        logger.error(f"Registration DB error:\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not create user: {str(e)}",
+        )
     return created_user
 
 

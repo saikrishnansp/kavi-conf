@@ -15,7 +15,7 @@ class User(SQLModel, table=True):
     google_refresh_token: Optional[str] = Field(default=None)
     otp_code: Optional[str] = Field(default=None)
     otp_expires_at: Optional[datetime] = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(IST))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(IST).replace(tzinfo=None))
 
     @property
     def is_admin(self) -> bool:

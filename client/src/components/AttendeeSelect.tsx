@@ -116,6 +116,7 @@ const AttendeeSelect = ({
             variant='outline'
             role='combobox'
             aria-expanded={open}
+            aria-controls="attendee-search-list"
             className='w-full justify-between'
           >
             {placeholder}
@@ -130,7 +131,7 @@ const AttendeeSelect = ({
               onValueChange={setSearchValue}
               onKeyDown={handleKeyDown}
             />
-            <CommandList>
+            <CommandList id="attendee-search-list">
               {loading && (
                 <div className='p-4 text-sm text-center'>Loading...</div>
               )}

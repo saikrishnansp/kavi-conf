@@ -64,86 +64,41 @@ const Rooms = () => {
   const { toast } = useToast();
   const { user } = useAuth(); // Get current user
   const isAdmin = user?.is_admin || false;
-  const [activeTab, setActiveTab] = useState(location.state?.defaultTab || "grid");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const queryClient = useQueryClient();
+
+  const [state, setState] = useState(() => ({
+    activeTab: location.state?.defaultTab || "grid",
+    selectedDate: new Date(),
+    selectedBooking: null as UIBooking | null,
+    isEditBookingOpen: false,
+    isCancelBookingOpen: false,
+    isTransferBookingOpen: false,
+    selectedRoom: null as Room | null,
+    isEditRoomOpen: false,
+  }));
+
+  const updateState = (updates: Partial<typeof state>) => {
+    setState((prev) => ({ ...prev, ...updates }));
+  };
+
+  const {
+    activeTab,
+    selectedDate,
+    selectedBooking,
+    isEditBookingOpen,
+    isCancelBookingOpen,
+    isTransferBookingOpen,
+    selectedRoom,
+    isEditRoomOpen,
+  } = state;
 
   useEffect(() => {
     if (location.state?.defaultTab) {
-      setActiveTab(location.state.defaultTab);
+      updateState({ activeTab: location.state.defaultTab });
       // Clear state after reading it
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
-
-  // 1. Fetch Rooms
-  const { data: roomsList, isLoading: isLoadingRooms } = useQuery({
-    queryKey: ["rooms"],
-    queryFn: () => roomsApi.getAll(),
-  });
-
-  // 2. Fetch My Bookings
-  const { data: myBookingsData, isLoading: isLoadingBookings } = useQuery({
-    queryKey: ["bookings"],
-    queryFn: () => bookingsApi.getAll(),
-  });
-
-  // 3. Fetch Public Bookings for selected date (for grid)
-  const start = startOfDay(selectedDate).toISOString();
-  const end = endOfDay(selectedDate).toISOString();
-
-  const { data: publicBookings } = useQuery({
-    queryKey: ["publicBookings", start, end],
-    queryFn: () => bookingsApi.getRange(start, end),
-  });
-
-  // Map public bookings to rooms
-  const rooms: RoomWithBookings[] = (roomsList?.items || []).map((room) => {
-    const roomBookings = (publicBookings || []).filter(
-      (b) => b.room_id === room.room_id,
-    ); // room_id matches
-    const bookedSlots: BookedSlot[] = roomBookings.map((b) => ({
-      start: format(new Date(b.start_time), "HH:mm"),
-      end: format(new Date(b.end_time), "HH:mm"),
-      subject: b.subject,
-      bookedBy: b.user_id, // or resolve name if available
-    }));
-    return { ...room, bookedSlots };
-  });
-
-  // Map my bookings to UI format
-  // UIBooking interface likely needs: id, roomName, roomNumber, subject, bookedBy, date, startTime, endTime, attendees, status
-  const bookings: UIBooking[] = (myBookingsData?.items || []).map((b) => {
-    // Find room details if possible from roomsList
-    const room = roomsList?.items.find((r) => r.room_id == b.room_id); // Ensure string/number compare works
-    return {
-      id: b.id,
-      room_id: b.room_id,
-      roomName: room?.name || "Unknown Room",
-      roomNumber: room?.room_number || 0,
-      subject: b.subject,
-      description: b.description,
-      bookedBy: user?.full_name || user?.email || "Me",
-      date: format(new Date(b.start_time), "yyyy-MM-dd"),
-      startTime: format(new Date(b.start_time), "HH:mm"),
-      endTime: format(new Date(b.end_time), "HH:mm"),
-      attendees: b.attendee_count,
-      attendees_list: b.attendees,
-      status: b.status as any,
-    };
-  });
-
-  // Booking management state
-  const [selectedBooking, setSelectedBooking] = useState<UIBooking | null>(
-    null,
-  );
-  const [isEditBookingOpen, setIsEditBookingOpen] = useState(false);
-  const [isCancelBookingOpen, setIsCancelBookingOpen] = useState(false);
-  const [isTransferBookingOpen, setIsTransferBookingOpen] = useState(false);
-
-  // Room management state
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
 
   // Mutations
   const cancelMutation = useMutation({
@@ -241,13 +196,12 @@ const Rooms = () => {
 
   // Admin actions
   const handleEditRoom = (room: Room) => {
-    setSelectedRoom(room);
-    setIsEditRoomOpen(true);
+    updateState({ selectedRoom: room, isEditRoomOpen: true });
   };
 
   const handleSaveRoom = (roomId: string, data: any) => {
     updateRoomMutation.mutate({ roomId, data });
-    setIsEditRoomOpen(false);
+    updateState({ isEditRoomOpen: false });
   };
 
   const handleToggleActive = (room: RoomWithBookings) => {
@@ -265,8 +219,7 @@ const Rooms = () => {
 
   // Booking management handlers
   const handleEditBooking = (booking: UIBooking) => {
-    setSelectedBooking(booking);
-    setIsEditBookingOpen(true);
+    updateState({ selectedBooking: booking, isEditBookingOpen: true });
   };
 
   const updateMutation = useMutation({
@@ -279,7 +232,7 @@ const Rooms = () => {
         title: "BOOKING UPDATED",
         description: "Your booking has been updated successfully.",
       });
-      setIsEditBookingOpen(false);
+      updateState({ isEditBookingOpen: false });
     },
     onError: (err: any) => {
       toast({
@@ -302,18 +255,16 @@ const Rooms = () => {
   };
 
   const handleCancelBookingPrompt = (booking: UIBooking) => {
-    setSelectedBooking(booking);
-    setIsCancelBookingOpen(true);
+    updateState({ selectedBooking: booking, isCancelBookingOpen: true });
   };
 
   const handleCancelBooking = (booking: UIBooking) => {
     cancelMutation.mutate(booking.id);
-    setIsCancelBookingOpen(false);
+    updateState({ isCancelBookingOpen: false });
   };
 
   const handleTransferBookingPrompt = (booking: UIBooking) => {
-    setSelectedBooking(booking);
-    setIsTransferBookingOpen(true);
+    updateState({ selectedBooking: booking, isTransferBookingOpen: true });
   };
 
   const handleTransferBooking = (booking: UIBooking, newRoomId: string) => {
@@ -354,7 +305,7 @@ const Rooms = () => {
 
         <Tabs
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={(val) => updateState({ activeTab: val })}
           className='space-y-6'
         >
           <TabsList className='grid w-full max-w-2xl grid-cols-3'>
@@ -400,7 +351,7 @@ const Rooms = () => {
                       <Calendar
                         mode='single'
                         selected={selectedDate}
-                        onSelect={(date) => date && setSelectedDate(date)}
+                        onSelect={(date) => date && updateState({ selectedDate: date })}
                         initialFocus
                       />
                     </PopoverContent>
@@ -641,8 +592,7 @@ const Rooms = () => {
           booking={selectedBooking}
           isOpen={isEditBookingOpen}
           onClose={() => {
-            setIsEditBookingOpen(false);
-            setSelectedBooking(null);
+            updateState({ isEditBookingOpen: false, selectedBooking: null });
           }}
           onSave={handleSaveBooking}
         />
@@ -650,8 +600,7 @@ const Rooms = () => {
           booking={selectedBooking}
           isOpen={isCancelBookingOpen}
           onClose={() => {
-            setIsCancelBookingOpen(false);
-            setSelectedBooking(null);
+            updateState({ isCancelBookingOpen: false, selectedBooking: null });
           }}
           onConfirm={handleCancelBooking}
         />
@@ -660,8 +609,7 @@ const Rooms = () => {
           rooms={roomsList?.items || []}
           isOpen={isTransferBookingOpen}
           onClose={() => {
-            setIsTransferBookingOpen(false);
-            setSelectedBooking(null);
+            updateState({ isTransferBookingOpen: false, selectedBooking: null });
           }}
           onTransfer={handleTransferBooking}
         />
@@ -670,8 +618,7 @@ const Rooms = () => {
           room={selectedRoom}
           isOpen={isEditRoomOpen}
           onClose={() => {
-            setIsEditRoomOpen(false);
-            setSelectedRoom(null);
+            updateState({ isEditRoomOpen: false, selectedRoom: null });
           }}
           onSave={handleSaveRoom}
           isPending={updateRoomMutation.isPending}

@@ -21,6 +21,8 @@ import {
 import { Loader2 } from "lucide-react";
 import type { Room, RoomCreate } from "@/types/api";
 
+const EMPTY_ROOMS: Room[] = [];
+
 interface EditRoomDialogProps {
   room: Room | null;
   isOpen: boolean;
@@ -36,7 +38,7 @@ export function EditRoomDialog({
   onClose,
   onSave,
   isPending,
-  allRooms = [],
+  allRooms = EMPTY_ROOMS,
 }: EditRoomDialogProps) {
   const [formData, setFormData] = useState<RoomCreate>({
     room_id: "",

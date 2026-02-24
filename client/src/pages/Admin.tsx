@@ -69,49 +69,67 @@ const Admin = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("bookings");
-  
-  // Dialog states
-  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
-  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  
-  // Booking management state
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [isEditBookingOpen, setIsEditBookingOpen] = useState(false);
-  const [isCancelBookingOpen, setIsCancelBookingOpen] = useState(false);
-  const [isTransferBookingOpen, setIsTransferBookingOpen] = useState(false);
 
-  // Employee management state
-  const [userSearch, setUserSearch] = useState("");
-  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
-  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
-  const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false);
-  const [editUserForm, setEditUserForm] = useState<Partial<UserCreate>>({
-    email: "",
-    full_name: "",
-    position: "",
-    employee_id: "",
-  });
-  
-  const [newRoom, setNewRoom] = useState<RoomCreate>({
-    room_id: "",
-    name: "",
-    room_number: 0,
-    capacity: 0,
-    is_split: false,
-    parent_room_id: "",
-  });
-  
-  const [editRoom, setEditRoom] = useState<RoomCreate>({
-    room_id: "",
-    name: "",
-    room_number: 0,
-    capacity: 0,
-    is_split: false,
-    parent_room_id: "",
-  });
+  const [state, setState] = useState(() => ({
+    activeTab: "bookings",
+    isAddRoomOpen: false,
+    isEditRoomOpen: false,
+    isDeleteDialogOpen: false,
+    selectedRoom: null as Room | null,
+    selectedBooking: null as Booking | null,
+    isEditBookingOpen: false,
+    isCancelBookingOpen: false,
+    isTransferBookingOpen: false,
+    userSearch: "",
+    selectedUser: null as UserResponse | null,
+    isEditUserOpen: false,
+    isDeleteUserOpen: false,
+    editUserForm: {
+      email: "",
+      full_name: "",
+      position: "",
+      employee_id: "",
+    } as Partial<UserCreate>,
+    newRoom: {
+      room_id: "",
+      name: "",
+      room_number: 0,
+      capacity: 0,
+      is_split: false,
+      parent_room_id: "",
+    } as RoomCreate,
+    editRoom: {
+      room_id: "",
+      name: "",
+      room_number: 0,
+      capacity: 0,
+      is_split: false,
+      parent_room_id: "",
+    } as RoomCreate,
+  }));
+
+  const updateState = (updates: Partial<typeof state>) => {
+    setState((prev) => ({ ...prev, ...updates }));
+  };
+
+  const {
+    activeTab,
+    isAddRoomOpen,
+    isEditRoomOpen,
+    isDeleteDialogOpen,
+    selectedRoom,
+    selectedBooking,
+    isEditBookingOpen,
+    isCancelBookingOpen,
+    isTransferBookingOpen,
+    userSearch,
+    selectedUser,
+    isEditUserOpen,
+    isDeleteUserOpen,
+    editUserForm,
+    newRoom,
+    editRoom,
+  } = state;
 
   // Queries
   const { data: roomsData, isLoading: loadingRooms } = useQuery({
@@ -180,8 +198,10 @@ const Admin = () => {
     mutationFn: roomsApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      setIsAddRoomOpen(false);
-      setNewRoom({ room_id: "", name: "", room_number: 0, capacity: 0, is_split: false, parent_room_id: "" });
+      updateState({
+        isAddRoomOpen: false,
+        newRoom: { room_id: "", name: "", room_number: 0, capacity: 0, is_split: false, parent_room_id: "" }
+      });
       toast({ title: "ROOM ADDED", description: "The new room has been created successfully." });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
@@ -194,8 +214,10 @@ const Admin = () => {
       roomsApi.update(roomId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      setIsEditRoomOpen(false);
-      setSelectedRoom(null);
+      updateState({
+        isEditRoomOpen: false,
+        selectedRoom: null
+      });
       toast({ title: "ROOM UPDATED", description: "Room details have been saved." });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
@@ -207,8 +229,10 @@ const Admin = () => {
     mutationFn: roomsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      setIsDeleteDialogOpen(false);
-      setSelectedRoom(null);
+      updateState({
+        isDeleteDialogOpen: false,
+        selectedRoom: null
+      });
       toast({ title: "ROOM DELETED", description: "The room has been removed." });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
@@ -245,8 +269,10 @@ const Admin = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['usersCount'] });
-      setIsEditUserOpen(false);
-      setSelectedUser(null);
+      updateState({
+        isEditUserOpen: false,
+        selectedUser: null
+      });
       toast({
         title: "EMPLOYEE UPDATED",
         description: "Employee details have been saved.",
@@ -266,8 +292,10 @@ const Admin = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['usersCount'] });
-      setIsDeleteUserOpen(false);
-      setSelectedUser(null);
+      updateState({
+        isDeleteUserOpen: false,
+        selectedUser: null
+      });
       toast({
         title: "EMPLOYEE REMOVED",
         description: "The employee has been deleted.",
@@ -301,14 +329,16 @@ const Admin = () => {
   const totalEmployees = usersCountData?.total_employees || 0;
 
   const handleEditUser = (userToEdit: UserResponse) => {
-    setSelectedUser(userToEdit);
-    setEditUserForm({
-      email: userToEdit.email,
-      full_name: userToEdit.full_name || "",
-      position: userToEdit.position || "",
-      employee_id: userToEdit.employee_id,
+    updateState({
+      selectedUser: userToEdit,
+      editUserForm: {
+        email: userToEdit.email,
+        full_name: userToEdit.full_name || "",
+        position: userToEdit.position || "",
+        employee_id: userToEdit.employee_id,
+      },
+      isEditUserOpen: true
     });
-    setIsEditUserOpen(true);
   };
 
   const handleSaveUserEdit = () => {
@@ -334,8 +364,10 @@ const Admin = () => {
   };
 
   const handleDeleteUserPrompt = (userToDelete: UserResponse) => {
-    setSelectedUser(userToDelete);
-    setIsDeleteUserOpen(true);
+    updateState({
+      selectedUser: userToDelete,
+      isDeleteUserOpen: true
+    });
   };
 
   const handleConfirmDeleteUser = async () => {
@@ -358,8 +390,10 @@ const Admin = () => {
             // On success of force delete
             queryClient.invalidateQueries({ queryKey: ['users'] });
             queryClient.invalidateQueries({ queryKey: ['usersCount'] });
-            setIsDeleteUserOpen(false);
-            setSelectedUser(null);
+            updateState({
+              isDeleteUserOpen: false,
+              selectedUser: null
+            });
             
             toast({
               title: "EMPLOYEE REMOVED (FORCED)",
@@ -410,16 +444,18 @@ const Admin = () => {
   };
 
   const handleEditRoom = (room: Room) => {
-    setSelectedRoom(room);
-    setEditRoom({
-      room_id: room.room_id,
-      name: room.name,
-      room_number: room.room_number,
-      capacity: room.capacity,
-      is_split: room.is_split,
-      parent_room_id: room.parent_room_id || "",
+    updateState({
+      selectedRoom: room,
+      editRoom: {
+        room_id: room.room_id,
+        name: room.name,
+        room_number: room.room_number,
+        capacity: room.capacity,
+        is_split: room.is_split,
+        parent_room_id: room.parent_room_id || "",
+      },
+      isEditRoomOpen: true
     });
-    setIsEditRoomOpen(true);
   };
 
   const handleSaveEdit = () => {
@@ -445,8 +481,10 @@ const Admin = () => {
   };
 
   const handleDeletePrompt = (room: Room) => {
-    setSelectedRoom(room);
-    setIsDeleteDialogOpen(true);
+    updateState({
+      selectedRoom: room,
+      isDeleteDialogOpen: true
+    });
   };
 
   const handleDeleteRoom = () => {
@@ -456,8 +494,10 @@ const Admin = () => {
 
   // Booking management handlers
   const handleEditBooking = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setIsEditBookingOpen(true);
+    updateState({
+      selectedBooking: booking,
+      isEditBookingOpen: true
+    });
   };
 
   const handleSaveBooking = (updatedBooking: Booking) => {
@@ -470,12 +510,14 @@ const Admin = () => {
       attendees: updatedBooking.attendees_list.map(a => a.email),
     };
     updateBookingMutation.mutate({ bookingId: updatedBooking.id, data: apiData });
-    setIsEditBookingOpen(false);
+    updateState({ isEditBookingOpen: false });
   };
 
   const handleCancelBookingPrompt = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setIsCancelBookingOpen(true);
+    updateState({
+      selectedBooking: booking,
+      isCancelBookingOpen: true
+    });
   };
 
   const handleCancelBooking = (booking: Booking) => {
@@ -483,8 +525,10 @@ const Admin = () => {
   };
 
   const handleTransferBookingPrompt = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setIsTransferBookingOpen(true);
+    updateState({
+      selectedBooking: booking,
+      isTransferBookingOpen: true
+    });
   };
 
   const handleTransferBooking = (booking: Booking, newRoomId: string) => {
@@ -492,7 +536,7 @@ const Admin = () => {
       bookingId: booking.id, 
       data: { room_id: newRoomId } 
     });
-    setIsTransferBookingOpen(false);
+    updateState({ isTransferBookingOpen: false });
   };
 
   const getStatusBadge = (status: string) => {
@@ -582,7 +626,7 @@ const Admin = () => {
           </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(val) => updateState({ activeTab: val })} className="space-y-6">
           <TabsList className="grid w-full max-w-xl grid-cols-3">
             <TabsTrigger value="bookings" className="gap-2">
               <Calendar className="h-4 w-4" />
@@ -666,7 +710,7 @@ const Admin = () => {
           <TabsContent value="rooms" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-pixel text-sm text-foreground">MANAGE ROOMS</h2>
-              <Dialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen}>
+              <Dialog open={isAddRoomOpen} onOpenChange={(val) => updateState({ isAddRoomOpen: val })}>
                 <DialogTrigger asChild>
                   <Button variant="neon" size="sm">
                     <Plus className="h-4 w-4 mr-2" />
@@ -686,7 +730,7 @@ const Admin = () => {
                       <Input
                         id="room_id"
                         value={newRoom.room_id}
-                        onChange={(e) => setNewRoom({ ...newRoom, room_id: e.target.value })}
+                        onChange={(e) => updateState({ newRoom: { ...newRoom, room_id: e.target.value } })}
                         placeholder="e.g., 101-CONF-A"
                         className="font-retro"
                       />
@@ -696,7 +740,7 @@ const Admin = () => {
                       <Input
                         id="name"
                         value={newRoom.name}
-                        onChange={(e) => setNewRoom({ ...newRoom, name: e.target.value })}
+                        onChange={(e) => updateState({ newRoom: { ...newRoom, name: e.target.value } })}
                         placeholder="e.g., NEON LOUNGE"
                         className="font-retro"
                       />
@@ -708,7 +752,7 @@ const Admin = () => {
                           id="room_number"
                           type="number"
                           value={newRoom.room_number || ""}
-                          onChange={(e) => setNewRoom({ ...newRoom, room_number: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => updateState({ newRoom: { ...newRoom, room_number: parseInt(e.target.value) || 0 } })}
                           placeholder="101"
                           className="font-retro"
                         />
@@ -719,7 +763,7 @@ const Admin = () => {
                           id="capacity"
                           type="number"
                           value={newRoom.capacity || ""}
-                          onChange={(e) => setNewRoom({ ...newRoom, capacity: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => updateState({ newRoom: { ...newRoom, capacity: parseInt(e.target.value) || 0 } })}
                           placeholder="8"
                           className="font-retro"
                         />
@@ -730,7 +774,7 @@ const Admin = () => {
                       <Switch
                         id="is_split"
                         checked={newRoom.is_split}
-                        onCheckedChange={(checked) => setNewRoom({ ...newRoom, is_split: checked })}
+                        onCheckedChange={(checked) => updateState({ newRoom: { ...newRoom, is_split: checked } })}
                       />
                     </div>
                     {newRoom.is_split && (
@@ -738,7 +782,7 @@ const Admin = () => {
                         <Label htmlFor="parent_room" className="font-retro text-primary">Parent Room</Label>
                         <Select 
                           value={newRoom.parent_room_id} 
-                          onValueChange={(val) => setNewRoom({ ...newRoom, parent_room_id: val })}
+                          onValueChange={(val) => updateState({ newRoom: { ...newRoom, parent_room_id: val } })}
                         >
                           <SelectTrigger className="font-retro">
                             <SelectValue placeholder="Select Parent Room" />
@@ -755,7 +799,7 @@ const Admin = () => {
                     )}
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddRoomOpen(false)}>
+                    <Button variant="outline" onClick={() => updateState({ isAddRoomOpen: false })}>
                       CANCEL
                     </Button>
                     <Button variant="neon" onClick={handleAddRoom} disabled={createRoomMutation.isPending}>
@@ -873,7 +917,7 @@ const Admin = () => {
                     placeholder="Search by name, email or employee ID..."
                     className="font-retro w-64"
                     value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
+                    onChange={(e) => updateState({ userSearch: e.target.value })}
                   />
                 </div>
               </CardHeader>
@@ -981,7 +1025,7 @@ const Admin = () => {
         </Tabs>
 
         {/* Edit Room Dialog */}
-        <Dialog open={isEditRoomOpen} onOpenChange={setIsEditRoomOpen}>
+        <Dialog open={isEditRoomOpen} onOpenChange={(val) => updateState({ isEditRoomOpen: val })}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle className="font-pixel text-sm text-primary">EDIT ROOM</DialogTitle>
@@ -995,7 +1039,7 @@ const Admin = () => {
                 <Input
                   id="edit_name"
                   value={editRoom.name}
-                  onChange={(e) => setEditRoom({ ...editRoom, name: e.target.value })}
+                  onChange={(e) => updateState({ editRoom: { ...editRoom, name: e.target.value } })}
                   placeholder="e.g., NEON LOUNGE"
                   className="font-retro"
                 />
@@ -1007,7 +1051,7 @@ const Admin = () => {
                     id="edit_room_number"
                     type="number"
                     value={editRoom.room_number || ""}
-                    onChange={(e) => setEditRoom({ ...editRoom, room_number: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => updateState({ editRoom: { ...editRoom, room_number: parseInt(e.target.value) || 0 } })}
                     className="font-retro"
                   />
                 </div>
@@ -1017,7 +1061,7 @@ const Admin = () => {
                     id="edit_capacity"
                     type="number"
                     value={editRoom.capacity || ""}
-                    onChange={(e) => setEditRoom({ ...editRoom, capacity: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => updateState({ editRoom: { ...editRoom, capacity: parseInt(e.target.value) || 0 } })}
                     className="font-retro"
                   />
                 </div>
@@ -1027,7 +1071,7 @@ const Admin = () => {
                 <Switch
                   id="edit_is_split"
                   checked={editRoom.is_split}
-                  onCheckedChange={(checked) => setEditRoom({ ...editRoom, is_split: checked })}
+                  onCheckedChange={(checked) => updateState({ editRoom: { ...editRoom, is_split: checked } })}
                 />
               </div>
               {editRoom.is_split && (
@@ -1035,7 +1079,7 @@ const Admin = () => {
                   <Label htmlFor="edit_parent_room" className="font-retro text-primary">Parent Room</Label>
                   <Select 
                     value={editRoom.parent_room_id} 
-                    onValueChange={(val) => setEditRoom({ ...editRoom, parent_room_id: val })}
+                    onValueChange={(val) => updateState({ editRoom: { ...editRoom, parent_room_id: val } })}
                   >
                     <SelectTrigger className="font-retro">
                       <SelectValue placeholder="Select Parent Room" />
@@ -1052,7 +1096,7 @@ const Admin = () => {
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditRoomOpen(false)}>
+              <Button variant="outline" onClick={() => updateState({ isEditRoomOpen: false })}>
                 CANCEL
               </Button>
               <Button variant="neon" onClick={handleSaveEdit} disabled={updateRoomMutation.isPending}>
@@ -1064,7 +1108,7 @@ const Admin = () => {
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={(val) => updateState({ isDeleteDialogOpen: val })}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="font-pixel text-sm text-destructive">DELETE ROOM</AlertDialogTitle>
@@ -1087,7 +1131,7 @@ const Admin = () => {
         </AlertDialog>
 
         {/* Edit Employee Dialog */}
-        <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+        <Dialog open={isEditUserOpen} onOpenChange={(val) => updateState({ isEditUserOpen: val })}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle className="font-pixel text-sm text-primary">
@@ -1111,7 +1155,7 @@ const Admin = () => {
                 <Input
                   value={editUserForm.email || ""}
                   onChange={(e) =>
-                    setEditUserForm((prev) => ({ ...prev, email: e.target.value }))
+                    updateState({ editUserForm: { ...editUserForm, email: e.target.value } })
                   }
                   type="email"
                   className="font-retro"
@@ -1123,7 +1167,7 @@ const Admin = () => {
                 <Input
                   value={editUserForm.full_name || ""}
                   onChange={(e) =>
-                    setEditUserForm((prev) => ({ ...prev, full_name: e.target.value }))
+                    updateState({ editUserForm: { ...editUserForm, full_name: e.target.value } })
                   }
                   className="font-retro"
                   placeholder="Employee name"
@@ -1134,7 +1178,7 @@ const Admin = () => {
                 <Input
                   value={editUserForm.position || ""}
                   onChange={(e) =>
-                    setEditUserForm((prev) => ({ ...prev, position: e.target.value }))
+                    updateState({ editUserForm: { ...editUserForm, position: e.target.value } })
                   }
                   className="font-retro"
                   placeholder="Job title"
@@ -1142,7 +1186,7 @@ const Admin = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
+              <Button variant="outline" onClick={() => updateState({ isEditUserOpen: false })}>
                 CANCEL
               </Button>
               <Button
@@ -1160,7 +1204,7 @@ const Admin = () => {
         </Dialog>
 
         {/* Delete Employee Confirmation Dialog */}
-        <AlertDialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
+        <AlertDialog open={isDeleteUserOpen} onOpenChange={(val) => updateState({ isDeleteUserOpen: val })}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="font-pixel text-sm text-destructive">
@@ -1197,8 +1241,7 @@ const Admin = () => {
           booking={selectedBooking}
           isOpen={isEditBookingOpen}
           onClose={() => {
-            setIsEditBookingOpen(false);
-            setSelectedBooking(null);
+            updateState({ isEditBookingOpen: false, selectedBooking: null });
           }}
           onSave={handleSaveBooking}
         />
@@ -1206,8 +1249,7 @@ const Admin = () => {
           booking={selectedBooking}
           isOpen={isCancelBookingOpen}
           onClose={() => {
-            setIsCancelBookingOpen(false);
-            setSelectedBooking(null);
+            updateState({ isCancelBookingOpen: false, selectedBooking: null });
           }}
           onConfirm={handleCancelBooking}
         />
@@ -1216,8 +1258,7 @@ const Admin = () => {
           rooms={rooms}
           isOpen={isTransferBookingOpen}
           onClose={() => {
-            setIsTransferBookingOpen(false);
-            setSelectedBooking(null);
+            updateState({ isTransferBookingOpen: false, selectedBooking: null });
           }}
           onTransfer={handleTransferBooking}
         />
