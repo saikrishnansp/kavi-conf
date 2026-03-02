@@ -41,6 +41,10 @@ const Agenda = () => {
     start: setMinutes(setHours(today, 13), 0),
     end: setMinutes(setHours(today, 22), 0),
   };
+  
+  // Clear seconds and milliseconds for consistent comparison
+  workingHours.start.setSeconds(0, 0);
+  workingHours.end.setSeconds(0, 0);
 
   const isWorkingHours = (timeStr: string) => {
     try {

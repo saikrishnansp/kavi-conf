@@ -1,10 +1,3 @@
-import { bookingsApi } from "@/lib/api/bookings";
-import { roomsApi } from "@/lib/api/rooms";
-import { timeSlots } from "@/lib/constants";
-import { cn } from "@/lib/utils";
-import { RoomCard } from "@/components/RoomCard";
-import { RoomCardAdmin } from "@/components/ui/RoomCardAdmin";
-import { EditRoomDialog } from "@/components/RoomDialogs";
 import {
   BookingActions,
   CancelBookingDialog,
@@ -14,6 +7,8 @@ import {
 } from "@/components/BookingManagementDialogs";
 import { RetroBackground } from "@/components/RetroBackground";
 import { RetroHeader } from "@/components/RetroHeader";
+import { RoomCard } from "@/components/RoomCard";
+import { EditRoomDialog } from "@/components/RoomDialogs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -23,28 +18,26 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { RoomCardAdmin } from "@/components/ui/RoomCardAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { bookingsApi } from "@/lib/api/bookings";
+import { roomsApi } from "@/lib/api/rooms";
+import { timeSlots } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { type Room } from "@/types/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { endOfDay, format, startOfDay } from "date-fns";
 import {
-  ArrowRight,
   BookOpen,
   Calendar as CalendarIcon,
-  CheckCircle,
   Clock,
   Grid,
   List,
-  Pencil,
-  Power,
-  Trash2,
-  Users,
-  XCircle,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 // Extended room type with booking info
 interface BookedSlot {
@@ -168,9 +161,32 @@ const Rooms = () => {
   const currentTime = getCurrentTimeSlot();
 
   const isSlotBooked = (room: RoomWithBookings, time: string) => {
-    return room.bookedSlots.find(
-      (slot) => time >= slot.start && time < slot.end,
-    );
+    // Helper to convert grid "HH:mm" to minutes from start of day
+    const toMinutes = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+
+    const slotStartMin = toMinutes(time);
+
+    // Find next slot to determine duration, default to 60 mins
+    const currentIndex = timeSlots.indexOf(time);
+    const nextSlot = timeSlots[currentIndex + 1];
+    const slotEndMin = nextSlot ? toMinutes(nextSlot) : slotStartMin + 60;
+
+    return room.bookedSlots.find((slot) => {
+      // Parse database ISO strings or Date objects
+      const startDate = new Date(slot.start);
+      const endDate = new Date(slot.end);
+
+      // Convert to minutes from midnight for the booking
+      const bookingStartMin =
+        startDate.getHours() * 60 + startDate.getMinutes();
+      const bookingEndMin = endDate.getHours() * 60 + endDate.getMinutes();
+
+      // Overlap logic: booking starts before slot ends AND booking ends after slot starts
+      return bookingStartMin < slotEndMin && bookingEndMin > slotStartMin;
+    });
   };
 
   const getNextAvailableSlot = (room: RoomWithBookings) => {
@@ -249,7 +265,7 @@ const Rooms = () => {
       description: updatedBooking.description,
       start_time: `${updatedBooking.date}T${updatedBooking.startTime}:00`,
       end_time: `${updatedBooking.date}T${updatedBooking.endTime}:00`,
-      attendees: updatedBooking.attendees_list.map(a => a.email),
+      attendees: updatedBooking.attendees_list.map((a) => a.email),
     };
     updateMutation.mutate({ bookingId: updatedBooking.id, data: apiData });
   };
@@ -275,8 +291,86 @@ const Rooms = () => {
     });
   };
 
+  // Queries
+  const { data: roomsList, isLoading: loadingRooms } = useQuery({
+    queryKey: ["rooms"],
+    queryFn: () => roomsApi.getAll(),
+  });
+
+  const { data: publicBookings, isLoading: loadingPublic } = useQuery({
+    queryKey: ["publicBookings", selectedDate.toISOString()],
+    queryFn: () =>
+      bookingsApi.getRange(
+        startOfDay(selectedDate).toISOString(),
+        endOfDay(selectedDate).toISOString(),
+      ),
+  });
+
+  const { data: userBookings, isLoading: loadingUserBookings } = useQuery({
+    queryKey: ["bookings"],
+    queryFn: () => bookingsApi.getAll({}),
+  });
+
+  // Data processing
+  const processedRooms: RoomWithBookings[] = useMemo(() => {
+    if (!roomsList?.items) return [];
+
+    return roomsList.items.map((room) => {
+      const roomBookings = (publicBookings || []).filter(
+        (b) => b.room_id === room.room_id && b.status === "confirmed",
+      );
+
+      const bookedSlots = roomBookings.map((b) => ({
+        start: b.start_time,
+        end: b.end_time,
+        subject: b.subject,
+        bookedBy: b.user_id,
+      }));
+
+      return { ...room, bookedSlots };
+    });
+  }, [roomsList, publicBookings]);
+
+  const rooms = processedRooms;
+
+  const bookings: UIBooking[] = useMemo(() => {
+    if (!userBookings?.items || !roomsList?.items) return [];
+
+    return userBookings.items.map((b) => {
+      const room = roomsList.items.find((r) => r.room_id === b.room_id);
+      return {
+        id: b.id,
+        room_id: b.room_id,
+        roomName: room?.name || "Unknown Room",
+        roomNumber: room?.room_number || 0,
+        subject: b.subject,
+        description: b.description || "",
+        bookedBy: b.user_id,
+        date: b.start_time.split("T")[0],
+        startTime: b.start_time.split("T")[1].substring(0, 5),
+        endTime: b.end_time.split("T")[1].substring(0, 5),
+        attendees: b.attendee_count,
+        attendees_list: b.attendees || [],
+        status: b.status,
+      };
+    });
+  }, [userBookings, roomsList]);
+
   const activeBookings = bookings.filter((b) => b.status === "confirmed");
   const pastBookings = bookings.filter((b) => b.status !== "confirmed");
+
+  if (loadingRooms || loadingPublic || loadingUserBookings) {
+    return (
+      <RetroBackground>
+        <RetroHeader />
+        <div className='flex items-center justify-center min-h-[60vh]'>
+          <div className='font-pixel text-xl text-primary animate-pulse'>
+            LOADING ROOMS...
+          </div>
+        </div>
+      </RetroBackground>
+    );
+  }
 
   return (
     <RetroBackground>
@@ -296,10 +390,11 @@ const Rooms = () => {
           </div>
           <Badge variant='outline' className='font-retro text-lg'>
             {
-              rooms.filter((r) => getRoomStatus(r).status === "AVAILABLE")
-                .length
+              rooms.filter(
+                (r) => r.is_active && getRoomStatus(r).status === "AVAILABLE",
+              ).length
             }{" "}
-            / {rooms.length} AVAILABLE NOW
+            / {rooms.filter((r) => r.is_active).length} AVAILABLE NOW
           </Badge>
         </div>
 
@@ -330,7 +425,8 @@ const Rooms = () => {
                 <div className='flex items-center justify-between'>
                   <CardTitle className='text-base flex items-center gap-2'>
                     <Clock className='h-5 w-5 text-primary' />
-                    {format(selectedDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
+                    {format(selectedDate, "yyyy-MM-dd") ===
+                    format(new Date(), "yyyy-MM-dd")
                       ? "TODAY'S SCHEDULE"
                       : `SCHEDULE FOR ${format(selectedDate, "MMM d, yyyy")}`}
                   </CardTitle>
@@ -344,14 +440,20 @@ const Rooms = () => {
                         )}
                       >
                         <CalendarIcon className='mr-2 h-4 w-4' />
-                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                        {selectedDate ? (
+                          format(selectedDate, "PPP")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className='w-auto p-0' align='end'>
                       <Calendar
                         mode='single'
                         selected={selectedDate}
-                        onSelect={(date) => date && updateState({ selectedDate: date })}
+                        onSelect={(date) =>
+                          date && updateState({ selectedDate: date })
+                        }
                         initialFocus
                       />
                     </PopoverContent>
@@ -466,7 +568,11 @@ const Rooms = () => {
                   <RoomCard
                     key={room.room_id}
                     room={room}
-                    onBook={() => navigate("/book", { state: { preselectedRoomId: room.room_id } })}
+                    onBook={() =>
+                      navigate("/book", {
+                        state: { preselectedRoomId: room.room_id },
+                      })
+                    }
                   />
                 );
               })}
@@ -494,9 +600,9 @@ const Rooms = () => {
                         <h3 className='font-retro text-sm text-muted-foreground'>
                           UPCOMING
                         </h3>
-                        {activeBookings.map((booking) => (
+                        {activeBookings.map((booking, index) => (
                           <div
-                            key={booking.id}
+                            key={`${booking.id}-${index}`}
                             className='p-3 rounded-sm border border-border bg-card/50 space-y-2'
                           >
                             <div className='flex items-start justify-between gap-2'>
@@ -609,7 +715,10 @@ const Rooms = () => {
           rooms={roomsList?.items || []}
           isOpen={isTransferBookingOpen}
           onClose={() => {
-            updateState({ isTransferBookingOpen: false, selectedBooking: null });
+            updateState({
+              isTransferBookingOpen: false,
+              selectedBooking: null,
+            });
           }}
           onTransfer={handleTransferBooking}
         />

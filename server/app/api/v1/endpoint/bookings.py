@@ -234,8 +234,11 @@ def create_booking(
                 )
 
             # 5. Check Room Availability for all dates
+            from app.utils.validation import ensure_tz_aware
             all_time_slots = [(booking_in.start_time, booking_in.end_time)]
             for d in booking_in.additional_dates:
+                # Ensure d is IST before replacing time components to avoid UTC boundary shifts
+                d = ensure_tz_aware(d)
                 # Sync the time parts from the primary start_time/end_time
                 s = d.replace(hour=booking_in.start_time.hour, minute=booking_in.start_time.minute, second=0, microsecond=0)
                 e = d.replace(hour=booking_in.end_time.hour, minute=booking_in.end_time.minute, second=0, microsecond=0)

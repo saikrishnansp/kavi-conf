@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from "react";
 import type { Room } from "@/types/api";
 
 interface BookingFormState {
@@ -36,14 +36,16 @@ const BookingContext = createContext<BookingContextType | undefined>(undefined);
 export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const [form, setFormState] = useState<BookingFormState>(initialState);
 
-  const setForm = (updates: Partial<BookingFormState>) => {
+  const setForm = useCallback((updates: Partial<BookingFormState>) => {
     setFormState((prev) => ({ ...prev, ...updates }));
-  };
+  }, []);
 
-  const resetForm = () => setFormState(initialState);
+  const resetForm = useCallback(() => setFormState(initialState), []);
+
+  const value = useMemo(() => ({ form, setForm, resetForm }), [form, setForm, resetForm]);
 
   return (
-    <BookingContext value={{ form, setForm, resetForm }}>
+    <BookingContext value={value}>
       {children}
     </BookingContext>
   );

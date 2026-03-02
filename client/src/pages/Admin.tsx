@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { RetroBackground } from "@/components/RetroBackground";
 import { RetroHeader } from "@/components/RetroHeader";
@@ -131,6 +131,13 @@ const Admin = () => {
     editRoom,
   } = state;
 
+  const getLocalDateString = (date: Date) => {
+    const pad = (num: number) => String(num).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  };
+
+  const todaysDateStr = getLocalDateString(new Date());
+
   // Queries
   const { data: roomsData, isLoading: loadingRooms } = useQuery({
     queryKey: ['rooms'],
@@ -143,10 +150,10 @@ const Admin = () => {
   });
 
   const { data: todaysBookingsData } = useQuery({
-    queryKey: ['bookings', { all_bookings: true, date: new Date().toISOString().split('T')[0] }],
+    queryKey: ['bookings', { all_bookings: true, date: todaysDateStr }],
     queryFn: () => bookingsApi.getAll({ 
       all_bookings: true, 
-      date: new Date().toISOString().split('T')[0],
+      date: todaysDateStr,
       limit: 1 // We only need the total
     })
   });
@@ -323,7 +330,6 @@ const Admin = () => {
     );
   };
 
-  const todaysDateStr = new Date().toISOString().split('T')[0];
   const todaysBookings = rawBookings.filter(b => b.start_time.startsWith(todaysDateStr));
   const activeRooms = rooms.filter(r => r.is_active);
   const totalEmployees = usersCountData?.total_employees || 0;
@@ -676,28 +682,53 @@ const Admin = () => {
                           </td>
                         </tr>
                       ) : (
-                        bookings.map((booking) => (
-                          <tr key={booking.id} className="border-b border-border hover:bg-muted/5">
-                            <td className="p-3">
-                              <p className="font-pixel text-xs">{booking.roomName}</p>
-                              <p className="font-retro text-sm text-muted-foreground">#{booking.roomNumber}</p>
-                            </td>
-                            <td className="p-3 font-retro text-lg">{booking.subject}</td>
-                            <td className="p-3 font-retro text-lg text-muted-foreground">{booking.bookedBy}</td>
-                            <td className="p-3 font-retro text-lg text-primary">{booking.startTime} - {booking.endTime}</td>
-                            <td className="p-3 font-retro text-lg">{booking.attendees}</td>
-                            <td className="p-3">{getStatusBadge(booking.status)}</td>
-                            <td className="p-3">
-                              <BookingActions
-                                booking={booking}
-                                onEdit={handleEditBooking}
-                                onCancel={handleCancelBookingPrompt}
-                                onTransfer={handleTransferBookingPrompt}
-                                compact
-                              />
-                            </td>
-                          </tr>
-                        ))
+                        bookings.map((booking, index) => {
+                          const showDateHeader = index === 0 || booking.date !== bookings[index - 1].date;
+                          return (
+                            <Fragment key={booking.id}>
+                              {showDateHeader && (
+                                <tr className='bg-muted/30'>
+                                  <td colSpan={7} className='p-2 px-4'>
+                                    <div className='flex items-center gap-2 text-primary font-pixel text-[10px]'>
+                                      <Calendar className='h-3 w-3' />
+                                      {new Date(booking.date).toLocaleDateString('en-US', { 
+                                        weekday: 'long', 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                      }).toUpperCase()}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                              <tr className="border-b border-border hover:bg-muted/5">
+                                <td className="p-3">
+                                  <p className="font-pixel text-xs">{booking.roomName}</p>
+                                  <p className="font-retro text-sm text-muted-foreground">#{booking.roomNumber}</p>
+                                </td>
+                                <td className="p-3 font-retro text-lg">{booking.subject}</td>
+                                <td className="p-3 font-retro text-lg text-muted-foreground">{booking.bookedBy}</td>
+                                <td className="p-3 font-retro text-lg text-primary">
+                                  <div className="flex flex-col">
+                                    <span>{booking.startTime} - {booking.endTime}</span>
+                                    <span className="text-[10px] text-muted-foreground">{booking.date}</span>
+                                  </div>
+                                </td>
+                                <td className="p-3 font-retro text-lg">{booking.attendees}</td>
+                                <td className="p-3">{getStatusBadge(booking.status)}</td>
+                                <td className="p-3">
+                                  <BookingActions
+                                    booking={booking}
+                                    onEdit={handleEditBooking}
+                                    onCancel={handleCancelBookingPrompt}
+                                    onTransfer={handleTransferBookingPrompt}
+                                    compact
+                                  />
+                                </td>
+                              </tr>
+                            </Fragment>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>

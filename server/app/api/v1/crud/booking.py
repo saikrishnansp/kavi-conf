@@ -311,7 +311,7 @@ def get_all_bookings(
     count_statement = select(func.count()).select_from(statement.subquery())
     total = session.exec(count_statement).one()
 
-    statement = statement.offset(skip).limit(limit)
+    statement = statement.order_by(Booking.start_time.desc()).offset(skip).limit(limit)
     items = session.exec(statement).all()
     return items, total
 

@@ -132,11 +132,13 @@ const Book = () => {
     if (!startTime || !endTime || dates.length === 0) return true;
 
     for (const date of dates) {
-      const start = setDateTime(date, startTime).toISOString();
-      const end = setDateTime(date, endTime).toISOString();
+      const start = setDateTime(date, startTime);
+      const end = setDateTime(date, endTime);
 
       const hasOverlap = room.bookedSlots.some((slot) => {
-        return start < slot.end && end > slot.start;
+        const slotStart = new Date(slot.start);
+        const slotEnd = new Date(slot.end);
+        return start < slotEnd && end > slotStart;
       });
 
       if (hasOverlap) return false;
@@ -184,8 +186,17 @@ const Book = () => {
     const firstDate = sortedDates[0];
     const otherDates = sortedDates.slice(1);
 
-    const start = setDateTime(firstDate, startTime).toISOString();
-    const end = setDateTime(firstDate, endTime).toISOString();
+    const formatDateWithOffset = (date: Date) => {
+      const pad = (num: number) => String(num).padStart(2, '0');
+      const offset = -date.getTimezoneOffset();
+      const sign = offset >= 0 ? '+' : '-';
+      const offH = pad(Math.floor(Math.abs(offset) / 60));
+      const offM = pad(Math.abs(offset) % 60);
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sign}${offH}:${offM}`;
+    };
+
+    const start = formatDateWithOffset(setDateTime(firstDate, startTime));
+    const end = formatDateWithOffset(setDateTime(firstDate, endTime));
 
     const bookingData: BookingCreate = {
       room_id: selectedRoom.room_id,
@@ -194,7 +205,7 @@ const Book = () => {
       subject: subject,
       description: description,
       attendees: attendees,
-      additional_dates: otherDates.map(d => d.toISOString()),
+      additional_dates: otherDates.map(d => formatDateWithOffset(d)),
       google_event_id: googleEventId,
       meet_link: meetLink,
     };

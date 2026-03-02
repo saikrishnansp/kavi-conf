@@ -31,6 +31,11 @@ class BookingCreate(BookingBase):
     google_event_id: Optional[str] = None
     meet_link: Optional[str] = None
 
+    @field_validator("additional_dates", mode="after")
+    @classmethod
+    def validate_additional_dates(cls, v: List[datetime]) -> List[datetime]:
+        return [ensure_tz_aware(d) for d in v]
+
     @field_validator("end_time")
     @classmethod
     def check_end_after_start(cls, v, info):
