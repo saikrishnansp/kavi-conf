@@ -3,7 +3,7 @@ import { RetroHeader } from "@/components/RetroHeader";
 import { BookingSuccessDialog } from "@/components/BookingSuccessDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBookingForm } from "@/contexts/BookingContext";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { bookingsApi } from "@/lib/api/bookings";
 import { roomsApi } from "@/lib/api/rooms";
 import { bookingSuccessQuote } from "@/lib/constants";
@@ -33,7 +33,6 @@ const MOTIVATIONAL_PHRASES = [
 ];
 
 const Book = () => {
-  const { toast } = useToast();
   const { user, googleToken } = useAuth();
   const { form, setForm, resetForm } = useBookingForm();
   const queryClient = useQueryClient();
@@ -170,10 +169,8 @@ const Book = () => {
       !endTime ||
       !subject
     ) {
-      toast({
-        title: "MISSING DATA",
+      toast.error("MISSING DATA", {
         description: "Please fill in all required fields",
-        variant: "destructive",
       });
       return;
     }
@@ -218,8 +215,7 @@ const Book = () => {
           Math.floor(Math.random() * bookingSuccessQuote.length)
         ];
 
-      toast({
-        title: "Booking Confirmed",
+      toast.success("Booking Confirmed", {
         description: `${randomQuote} Successfully created ${dates.length} booking(s).`,
       });
       
@@ -233,10 +229,8 @@ const Book = () => {
 
     } catch (error: any) {
       console.error("Booking failed", error);
-      toast({
-        title: "Booking Failed",
+      toast.error("Booking Failed", {
         description: error.message || "Unknown error",
-        variant: "destructive",
       });
     } finally {
       setIsBooking(false);

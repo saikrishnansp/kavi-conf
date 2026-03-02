@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # --- Core Project Settings ---
-    PROJECT_NAME: str = "Reservation System"
+    PROJECT_NAME: str = "Kavi Conf"
     API_V1_STR: str = "/api/v1"
     FRONTEND_URL: str = "http://localhost:5173"
     
@@ -27,12 +27,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
-    # --- CORS (Cross-Origin Resource Sharing) ---
+    # --- CORS (Cross-Origin Resource Sharing) --- add frontend URL here 
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173", 
         "http://localhost:3000",
         "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:3000",
     ]
 
     # --- Logging ---

@@ -40,7 +40,7 @@ import {
   Trash2,
   Power,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { roomsApi } from "@/lib/api/rooms";
 import { bookingsApi } from "@/lib/api/bookings";
 import { usersApi } from "@/lib/api/users";
@@ -67,7 +67,6 @@ import {
 
 const Admin = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [state, setState] = useState(() => ({
@@ -209,10 +208,10 @@ const Admin = () => {
         isAddRoomOpen: false,
         newRoom: { room_id: "", name: "", room_number: 0, capacity: 0, is_split: false, parent_room_id: "" }
       });
-      toast({ title: "ROOM ADDED", description: "The new room has been created successfully." });
+      toast.success("ROOM ADDED", { description: "The new room has been created successfully." });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
-      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to create room", variant: "destructive" });
+      toast.error("ERROR", { description: error.response?.data?.detail || "Failed to create room" });
     }
   });
 
@@ -225,10 +224,10 @@ const Admin = () => {
         isEditRoomOpen: false,
         selectedRoom: null
       });
-      toast({ title: "ROOM UPDATED", description: "Room details have been saved." });
+      toast.success("ROOM UPDATED", { description: "Room details have been saved." });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
-      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to update room", variant: "destructive" });
+      toast.error("ERROR", { description: error.response?.data?.detail || "Failed to update room" });
     }
   });
 
@@ -240,10 +239,10 @@ const Admin = () => {
         isDeleteDialogOpen: false,
         selectedRoom: null
       });
-      toast({ title: "ROOM DELETED", description: "The room has been removed." });
+      toast.success("ROOM DELETED", { description: "The room has been removed." });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
-      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to delete room", variant: "destructive" });
+      toast.error("ERROR", { description: error.response?.data?.detail || "Failed to delete room" });
     }
   });
 
@@ -251,10 +250,10 @@ const Admin = () => {
     mutationFn: (bookingId: number) => bookingsApi.cancel(bookingId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      toast({ title: "BOOKING CANCELLED", description: "The booking has been removed." });
+      toast.success("BOOKING CANCELLED", { description: "The booking has been removed." });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
-      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to cancel booking", variant: "destructive" });
+      toast.error("ERROR", { description: error.response?.data?.detail || "Failed to cancel booking" });
     }
   });
 
@@ -263,10 +262,10 @@ const Admin = () => {
       bookingsApi.update(bookingId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      toast({ title: "BOOKING UPDATED", description: "Changes saved successfully." });
+      toast.success("BOOKING UPDATED", { description: "Changes saved successfully." });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
-      toast({ title: "ERROR", description: error.response?.data?.detail || "Failed to update booking", variant: "destructive" });
+      toast.error("ERROR", { description: error.response?.data?.detail || "Failed to update booking" });
     }
   });
 
@@ -280,16 +279,13 @@ const Admin = () => {
         isEditUserOpen: false,
         selectedUser: null
       });
-      toast({
-        title: "EMPLOYEE UPDATED",
+      toast.success("EMPLOYEE UPDATED", {
         description: "Employee details have been saved.",
       });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
-      toast({
-        title: "ERROR",
+      toast.error("ERROR", {
         description: error.response?.data?.detail || "Failed to update employee",
-        variant: "destructive",
       });
     },
   });
@@ -303,8 +299,7 @@ const Admin = () => {
         isDeleteUserOpen: false,
         selectedUser: null
       });
-      toast({
-        title: "EMPLOYEE REMOVED",
+      toast.success("EMPLOYEE REMOVED", {
         description: "The employee has been deleted.",
       });
     },
@@ -351,10 +346,8 @@ const Admin = () => {
     if (!selectedUser) return;
 
     if (!editUserForm.email) {
-      toast({
-        title: "ERROR",
+      toast.error("ERROR", {
         description: "Email is required",
-        variant: "destructive",
       });
       return;
     }
@@ -401,23 +394,18 @@ const Admin = () => {
               selectedUser: null
             });
             
-            toast({
-              title: "EMPLOYEE REMOVED (FORCED)",
+            toast.success("EMPLOYEE REMOVED (FORCED)", {
               description: "The employee and all their active bookings have been deleted.",
             });
           } catch (forceError: any) {
-            toast({
-              title: "ERROR",
+            toast.error("ERROR", {
               description: forceError.response?.data?.detail || "Failed to force delete employee",
-              variant: "destructive",
             });
           }
         }
       } else {
-        toast({
-          title: "ERROR",
+        toast.error("ERROR", {
           description: detail || "Failed to delete employee",
-          variant: "destructive",
         });
       }
     }
@@ -425,10 +413,8 @@ const Admin = () => {
 
   const handleAddRoom = () => {
     if (!newRoom.name || !newRoom.room_id || !newRoom.room_number || !newRoom.capacity) {
-      toast({
-        title: "ERROR",
+      toast.error("ERROR", {
         description: "Please fill in all required fields",
-        variant: "destructive",
       });
       return;
     }
@@ -466,10 +452,8 @@ const Admin = () => {
 
   const handleSaveEdit = () => {
     if (!selectedRoom || !editRoom.name || !editRoom.room_id || !editRoom.capacity) {
-      toast({
-        title: "ERROR",
+      toast.error("ERROR", {
         description: "Please fill in all required fields",
-        variant: "destructive",
       });
       return;
     }

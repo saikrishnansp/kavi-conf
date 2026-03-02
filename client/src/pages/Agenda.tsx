@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, isWithinInterval, parseISO, setHours, setMinutes, startOfDay, endOfDay } from "date-fns";
 import { Calendar as CalendarIcon, Clock, MapPin, Plus, ExternalLink, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import BookingHeader from "@/components/book/BookingHeader";
 import { RetroBackground } from "@/components/RetroBackground";
 import { RetroHeader } from "@/components/RetroHeader";
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,7 @@ const Agenda = () => {
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
+            <BookingHeader googleToken={googleToken} />
             <h1 className="font-pixel text-2xl text-primary neon-glow mb-1">DAILY AGENDA</h1>
             <p className="font-retro text-xl text-muted-foreground flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />

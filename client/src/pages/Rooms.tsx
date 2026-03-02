@@ -21,7 +21,7 @@ import {
 import { RoomCardAdmin } from "@/components/ui/RoomCardAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { bookingsApi } from "@/lib/api/bookings";
 import { roomsApi } from "@/lib/api/rooms";
 import { timeSlots } from "@/lib/constants";
@@ -54,7 +54,6 @@ interface RoomWithBookings extends Room {
 const Rooms = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
   const { user } = useAuth(); // Get current user
   const isAdmin = user?.is_admin || false;
   const queryClient = useQueryClient();
@@ -99,17 +98,13 @@ const Rooms = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
       queryClient.invalidateQueries({ queryKey: ["publicBookings"] });
-      toast({
-        title: "BOOKING CANCELLED",
+      toast.error("BOOKING CANCELLED", {
         description: "Your booking has been cancelled.",
-        variant: "destructive",
       });
     },
     onError: (err: any) => {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: err.message,
-        variant: "destructive",
       });
     },
   });
@@ -119,16 +114,13 @@ const Rooms = () => {
       roomsApi.update(roomId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
-      toast({
-        title: "ROOM UPDATED",
+      toast.success("ROOM UPDATED", {
         description: "The room has been updated successfully.",
       });
     },
     onError: (err: any) => {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: err.message || "Failed to update room",
-        variant: "destructive",
       });
     },
   });
@@ -137,17 +129,13 @@ const Rooms = () => {
     mutationFn: roomsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
-      toast({
-        title: "ROOM DELETED",
+      toast.error("ROOM DELETED", {
         description: "The room has been removed.",
-        variant: "destructive",
       });
     },
     onError: (err: any) => {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: err.message || "Failed to delete room",
-        variant: "destructive",
       });
     },
   });
@@ -244,17 +232,14 @@ const Rooms = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
       queryClient.invalidateQueries({ queryKey: ["publicBookings"] });
-      toast({
-        title: "BOOKING UPDATED",
+      toast.success("BOOKING UPDATED", {
         description: "Your booking has been updated successfully.",
       });
       updateState({ isEditBookingOpen: false });
     },
     onError: (err: any) => {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: err.message || "Failed to update booking",
-        variant: "destructive",
       });
     },
   });
@@ -285,8 +270,7 @@ const Rooms = () => {
 
   const handleTransferBooking = (booking: UIBooking, newRoomId: string) => {
     // TODO: Implement Transfer mutation
-    toast({
-      title: "NOT IMPLEMENTED",
+    toast("NOT IMPLEMENTED", {
       description: "Transfer booking coming soon",
     });
   };

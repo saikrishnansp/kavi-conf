@@ -5,7 +5,7 @@ import { Users, Pencil, Power, Trash2, CheckCircle, XCircle, ArrowRight } from "
 import type { Room } from "@/types/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { roomsApi } from "@/lib/api/rooms";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
@@ -25,7 +25,6 @@ interface RoomCardAdminProps {
 }
 
 export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -33,16 +32,13 @@ export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
     mutationFn: () => roomsApi.update(room.room_id, { is_active: !room.is_active }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
-      toast({
-        title: room.is_active ? "ROOM DEACTIVATED" : "ROOM ACTIVATED",
+      toast.success(room.is_active ? "ROOM DEACTIVATED" : "ROOM ACTIVATED", {
         description: `${room.name} is now ${room.is_active ? "offline" : "online"}.`,
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "ACTION FAILED",
+      toast.error("ACTION FAILED", {
         description: error.response?.data?.detail || "Could not update room status.",
-        variant: "destructive",
       });
     }
   });
@@ -51,17 +47,13 @@ export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
     mutationFn: () => roomsApi.delete(room.room_id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
-      toast({
-        title: "ROOM DELETED",
+      toast.error("ROOM DELETED", {
         description: `${room.name} has been removed.`,
-        variant: "destructive",
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "DELETE FAILED",
+      toast.error("DELETE FAILED", {
         description: error.response?.data?.detail || "Could not delete room.",
-        variant: "destructive",
       });
     }
   });

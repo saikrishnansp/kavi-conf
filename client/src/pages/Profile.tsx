@@ -5,14 +5,13 @@ import { RetroHeader } from "@/components/RetroHeader";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 // import { User, Save, Loader2, Pencil } from "lucide-react";
 import { User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi } from "@/lib/api/auth";
 
 const Profile = () => {
-  const { toast } = useToast();
   const { user, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,13 +47,11 @@ const Profile = () => {
         position: profile.position,
       });
       await refreshUser();
-      toast({ title: "PROFILE UPDATED", description: "Your changes have been saved" });
+      toast.success("PROFILE UPDATED", { description: "Your changes have been saved" });
       setIsEditing(false);
     } catch (error: any) {
-      toast({
-        title: "UPDATE FAILED",
+      toast.error("UPDATE FAILED", {
         description: error.response?.data?.detail || "Could not update profile",
-        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

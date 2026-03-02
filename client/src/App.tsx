@@ -1,11 +1,12 @@
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { BookingProvider } from "./contexts/BookingContext";
 import { WebSocketProvider } from "./contexts/WebSocketContext";
+import PageLoader from "./components/ui/PageLoader";
 
 // Eagerly loaded — rendered before auth check, must be instant
 import Index from "./pages/Index";
@@ -19,12 +20,6 @@ const Book    = lazy(() => import("./pages/Book"));
 const Admin   = lazy(() => import("./pages/Admin"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Rooms   = lazy(() => import("./pages/Rooms"));
-
-const PageLoader = () => (
-  <div className="flex h-screen w-full items-center justify-center bg-background">
-    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-  </div>
-);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,7 +76,7 @@ function App() {
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </Suspense>
-              <Toaster position="top-center" richColors />
+              <Toaster position="top-right" richColors />
             </WebSocketProvider>
           </BookingProvider>
         </AuthProvider>

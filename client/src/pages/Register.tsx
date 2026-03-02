@@ -1,6 +1,6 @@
 import { AuthForm, AuthFormData } from "@/components/AuthForm";
 import { RetroBackground } from "@/components/RetroBackground";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { authApi } from "@/lib/api/auth";
 import type { UserCreate } from "@/types/api";
 import { Zap } from "lucide-react";
@@ -10,7 +10,6 @@ import { useNavigate } from "react-router-dom";
 const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const handleRegister = async (data: AuthFormData) => {
     setIsLoading(true);
@@ -24,18 +23,15 @@ const Register = () => {
 
       await authApi.register(payload);
 
-      toast({
-        title: "ACCOUNT CREATED",
+      toast.success("ACCOUNT CREATED", {
         description: "Registration successful. Redirecting to login...",
       });
 
       navigate("/login");
     } catch (error: any) {
-      toast({
-        title: "REGISTRATION FAILED",
+      toast.error("REGISTRATION FAILED", {
         description:
           error.response?.data?.detail || error.message || "Could not create account",
-        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

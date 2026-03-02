@@ -1,4 +1,4 @@
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useWebSocket, type WebSocketStatus } from "@/hooks/useWebSocket";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, ReactNode, useContext } from "react";
@@ -21,7 +21,6 @@ export function WebSocketProvider({
 }) {
   const { token, user } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   
   const { status, lastMessage, send } = useWebSocket({
     path,
@@ -49,16 +48,11 @@ export function WebSocketProvider({
 
       // Real-time notifications (don't toast for self-actions)
       if (type === "booking_created" && !isMe) {
-        toast({
-          title: `New booking confirmed for ${roomLabel}!`,
-        });
+        toast.success(`New booking confirmed for ${roomLabel}!`);
       } else if (type === "booking_updated" && !isMe) {
-        toast({
-          title: "Booking updated.",
-        });
+        toast.success("Booking updated.");
       } else if (type === "hold_acquired" && !isMe) {
-        toast({
-          title: "Room status",
+        toast("Room status", {
           description: `Room ${roomLabel} is currently being viewed by another user.`,
         });
       }

@@ -1,4 +1,4 @@
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { authApi } from "@/lib/api/auth";
 import { UserResponse } from "@/types/api";
 import {
@@ -32,7 +32,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.getItem("google_token"),
   );
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
   // Helper to decode JWT payload without external library
   const getGoogleTokenFromJwt = (tokenStr: string): string | null => {
@@ -88,8 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const userData = await authApi.getMe();
             setUser(userData);
             setIsLoading(false);
-            toast({
-              title: "Welcome back!",
+            toast.success("Welcome back!", {
               description: "Successfully logged in via Google.",
             });
             return;
@@ -128,16 +126,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authApi.verifyOtp(email, otp);
       loginWithToken(response.access_token);
-      toast({
-        title: "Welcome back!",
+      toast.success("Welcome back!", {
         description: "Successfully logged in.",
       });
       // User will be fetched by useEffect
     } catch (error: any) {
-      toast({
-        title: "Login Failed",
+      toast.error("Login Failed", {
         description: error.response?.data?.detail || "Invalid OTP",
-        variant: "destructive",
       });
       throw error;
     }

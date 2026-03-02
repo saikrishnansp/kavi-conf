@@ -1,52 +1,29 @@
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 5173,
-    hmr: {
-      overlay: false,
-    },
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-query": ["@tanstack/react-query"],
-          "vendor-radix": [
-            "@radix-ui/react-accordion",
-            "@radix-ui/react-alert-dialog",
-            "@radix-ui/react-dialog",
-            "@radix-ui/react-label",
-            "@radix-ui/react-popover",
-            "@radix-ui/react-select",
-            "@radix-ui/react-separator",
-            "@radix-ui/react-slot",
-            "@radix-ui/react-switch",
-            "@radix-ui/react-tabs",
-            "@radix-ui/react-toast",
-            "@radix-ui/react-tooltip",
-          ],
-          "vendor-misc": [
-            "axios",
-            "date-fns",
-            "lucide-react",
-            "zod",
-            "clsx",
-            "class-variance-authority",
-            "tailwind-merge",
-            "sonner",
-          ],
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd());
+  
+  return ({
+    server: {
+      host: "::",
+      port: 5173,
+      allowedHosts: ["http://localhost:5173", "docs"],
+      proxy: {
+        "/api": {
+          target: env.VITE_API_URL || 'http://localhost:8000',
+          changeOrigin: true,
         },
       },
+      hmr: {
+        overlay: false,
+      },
     },
-  },
-}));
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
+  });
+});

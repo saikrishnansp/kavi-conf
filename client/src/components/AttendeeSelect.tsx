@@ -1,24 +1,12 @@
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useDebounce } from "@/hooks/useDebounce";
+import { Card } from "@/components/ui/card";
 import { usersApi } from "@/lib/api/users";
-import { cn } from "@/lib/utils";
 import { UserResponse } from "@/types/api";
-import { Check, ChevronsUpDown, X } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { X, Search, User, Mail, Hash } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AttendeeSelectProps {
   selectedEmails: string[];
@@ -29,154 +17,152 @@ interface AttendeeSelectProps {
 const AttendeeSelect = ({
   selectedEmails,
   onChange,
-  placeholder = "Select attendees...",
+  placeholder = "Search by name, email or employee ID...",
 }: AttendeeSelectProps) => {
-  const [open, setOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
-  const [debouncedSearch] = useDebounce(searchValue, 300);
-  const [searchResults, setSearchResults] = useState<UserResponse[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  // Task 1: Fetch and Filter Users
+  const { data: users = [] } = useQuery({
+    queryKey: ["users-all"],
+    queryFn: () => usersApi.list({ limit: 1000 }), // Fetching all users to filter locally as requested
+  });
+
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    
+    const query = searchQuery.toLowerCase();
+    return users.filter((user) => {
+      // Exclude users already in the attendees array
+      if (selectedEmails.includes(user.email)) return false;
+
+      return (
+        (user.full_name || "").toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query) ||
+        user.employee_id.toLowerCase().includes(query)
+      );
+    });
+  }, [users, searchQuery, selectedEmails]);
+
+  // Handle clicking outside to close dropdown
   useEffect(() => {
-    const fetchUsers = async () => {
-      if (!debouncedSearch || debouncedSearch.length < 1) {
-        setSearchResults([]);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const users = await usersApi.search(debouncedSearch);
-        setSearchResults(users);
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
-      } finally {
-        setLoading(false);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
       }
     };
 
-    fetchUsers();
-  }, [debouncedSearch]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const handleSelect = (email: string) => {
-    if (selectedEmails.includes(email)) {
-      onChange(selectedEmails.filter((e) => e !== email));
-    } else {
+  const handleAddUser = (email: string) => {
+    if (!selectedEmails.includes(email)) {
       onChange([...selectedEmails, email]);
     }
-    setSearchValue("");
+    setSearchQuery("");
+    setIsDropdownOpen(false);
   };
 
-  const handleRemove = (email: string) => {
+  const handleRemoveUser = (email: string) => {
     onChange(selectedEmails.filter((e) => e !== email));
   };
 
-  const isEmail = (val: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && searchValue && isEmail(searchValue)) {
-      if (!selectedEmails.includes(searchValue)) {
-        handleSelect(searchValue);
-      }
-      setSearchValue("");
-      e.preventDefault();
-    }
-  };
-
   return (
-    <div className='flex flex-col gap-2'>
-      <div className='flex flex-wrap gap-1 mb-1'>
-        {selectedEmails.map((email) => (
-          <Badge key={email} variant='secondary' className='gap-1'>
-            {email}
-            <button
-              className='ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleRemove(email);
-                }
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onClick={() => handleRemove(email)}
-            >
-              <X className='h-3 w-3 text-muted-foreground hover:text-foreground' />
-            </button>
-          </Badge>
-        ))}
-      </div>
+    <div className="space-y-3" ref={containerRef}>
+      {/* Task 3: Selected Attendees Chips */}
+      {selectedEmails.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selectedEmails.map((email) => {
+            // Try to find the user details for the badge
+            const user = users.find(u => u.email === email);
+            return (
+              <Badge 
+                key={email} 
+                variant="secondary" 
+                className="font-retro py-1.5 px-3 flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200"
+              >
+                <span className="max-w-[150px] truncate">
+                  {user?.full_name || email}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveUser(email)}
+                  className="hover:text-destructive transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            );
+          })}
+        </div>
+      )}
 
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant='outline'
-            role='combobox'
-            aria-expanded={open}
-            aria-controls="attendee-search-list"
-            className='w-full justify-between'
-          >
-            {placeholder}
-            <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className='w-[var(--radix-popover-trigger-width)] p-0'>
-          <Command shouldFilter={false}>
-            <CommandInput
-              placeholder='Search by name, email or employee ID...'
-              value={searchValue}
-              onValueChange={setSearchValue}
-              onKeyDown={handleKeyDown}
-            />
-            <CommandList id="attendee-search-list">
-              {loading && (
-                <div className='p-4 text-sm text-center'>Loading...</div>
-              )}
-              {!loading &&
-                searchResults.length === 0 &&
-                searchValue.length > 0 && (
-                  <CommandEmpty>
-                    {isEmail(searchValue)
-                      ? `Press Enter to add external guest: ${searchValue}`
-                      : "No users found."}
-                  </CommandEmpty>
-                )}
-              <CommandGroup>
-                {searchResults.map((user) => (
-                  <CommandItem
+      {/* Task 2: UI Implementation - Search Input */}
+      <div className="relative">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={placeholder}
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setIsDropdownOpen(true);
+            }}
+            onFocus={() => setIsDropdownOpen(true)}
+            className="pl-10 font-retro"
+          />
+        </div>
+
+        {/* Task 2: UI Implementation - Search Results Dropdown */}
+        {isDropdownOpen && searchQuery.trim() !== "" && (
+          <Card className="absolute z-50 w-full mt-1 max-h-64 overflow-y-auto shadow-xl border-primary/20 animate-in fade-in slide-in-from-top-2">
+            <div className="p-1">
+              {filteredUsers.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-muted-foreground font-retro text-center">
+                  NO USERS FOUND
+                </div>
+              ) : (
+                filteredUsers.map((user) => (
+                  <button
                     key={user.employee_id}
-                    value={user.email}
-                    onSelect={() => {
-                      handleSelect(user.email);
-                      setOpen(false);
-                    }}
+                    type="button"
+                    onClick={() => handleAddUser(user.email)}
+                    className="w-full text-left px-4 py-3 hover:bg-primary/10 transition-colors rounded-sm group flex flex-col gap-0.5"
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedEmails.includes(user.email)
-                          ? "opacity-100"
-                          : "opacity-0",
-                      )}
-                    />
-                    <div className='flex flex-col'>
-                      <span>
-                        {user.full_name} ({user.email})
+                    <div className="flex items-center justify-between">
+                      <span className="font-retro text-foreground group-hover:text-primary transition-colors flex items-center gap-2">
+                        <User className="h-3.5 w-3.5" />
+                        {user.full_name || "Unknown User"}
                       </span>
-                      <span className='text-xs text-muted-foreground'>
-                        {user.employee_id} - {user.position}
+                      <span className="text-[10px] font-pixel text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        #{user.employee_id}
                       </span>
                     </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                    <div className="flex items-center gap-4 mt-0.5">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <Mail className="h-3 w-3" />
+                        {user.email}
+                      </span>
+                      {user.position && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <Hash className="h-3 w-3" />
+                          {user.position}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </Card>
+        )}
+      </div>
+      
+      <p className="text-[10px] font-pixel text-muted-foreground/60 uppercase">
+        {selectedEmails.length} ATTENDEE{selectedEmails.length !== 1 ? "S" : ""} SELECTED
+      </p>
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { authApi } from "@/lib/api/auth";
 import { Eye, EyeOff, LogIn, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -17,7 +17,6 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { verifyOtp, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // Redirect if already logged in
@@ -30,10 +29,8 @@ const Login = () => {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      toast({
-        title: "MISSING EMAIL",
+      toast.error("MISSING EMAIL", {
         description: "Please enter your email address",
-        variant: "destructive",
       });
       return;
     }
@@ -42,15 +39,12 @@ const Login = () => {
     try {
       await authApi.requestOtp(email);
       setStep("otp");
-      toast({
-        title: "OTP SENT",
+      toast.success("OTP SENT", {
         description: "Check the server console (mock email) for your 6-digit code.",
       });
     } catch (error: any) {
-      toast({
-        title: "REQUEST FAILED",
+      toast.error("REQUEST FAILED", {
         description: error.response?.data?.detail || "Could not send OTP",
-        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -60,10 +54,8 @@ const Login = () => {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp) {
-      toast({
-        title: "MISSING OTP",
+      toast.error("MISSING OTP", {
         description: "Please enter the 6-digit code",
-        variant: "destructive",
       });
       return;
     }
