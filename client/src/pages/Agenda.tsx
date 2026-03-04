@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api/axios";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import PageLoader from "@/components/ui/PageLoader";
 
 interface AgendaItem {
   id: string;
@@ -22,6 +23,8 @@ interface AgendaItem {
   location?: string;
   room_id?: string;
   booking_id?: number;
+  attendees?: string[];
+  meet_link?: string;
 }
 
 const Agenda = () => {
@@ -61,7 +64,7 @@ const Agenda = () => {
     const endDate = parseISO(item.end_time);
     
     // Extract attendee emails from the event
-    const attendeeEmails = (item as any).attendees?.map((a: any) => a.email) || [];
+    const attendeeEmails = item.attendees || [];
 
     navigate("/book", {
       state: {
@@ -71,7 +74,7 @@ const Agenda = () => {
           startTime: format(startDate, "HH:mm"),
           endTime: format(endDate, "HH:mm"),
           googleEventId: item.id,
-          meetLink: (item as any).meet_link,
+          meetLink: item.meet_link,
           attendees: attendeeEmails,
         }
       }
@@ -124,10 +127,7 @@ const Agenda = () => {
         </header>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-            <Clock className="h-12 w-12 text-primary mb-4" />
-            <p className="font-pixel text-sm">SYNCHRONIZING TIMELINE...</p>
-          </div>
+          <PageLoader />
         ) : (
           <div className="space-y-12">
             {/* Early Meetings (Before 1 PM) */}
@@ -230,7 +230,7 @@ const AgendaCard = ({
                 <div className="flex items-center gap-3 mb-2">
                   {isBooked ? (
                     <Badge className="bg-primary text-primary-foreground font-pixel text-[10px]">
-                      SECURED
+                      Room Booked
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="font-pixel text-[10px]">

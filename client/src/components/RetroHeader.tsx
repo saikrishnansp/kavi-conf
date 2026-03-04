@@ -88,7 +88,7 @@ export function RetroHeader({ userName }: RetroHeaderProps) {
                   <Button variant='outline' size='sm' asChild>
                     <Link to='/profile'>
                       <User className='h-4 w-4 mr-2' />
-                      PROFILE
+                      {user?.full_name?.split(" ")[0]?.toUpperCase() || "PROFILE"}
                     </Link>
                   </Button>
                   <Button variant='ghost' size='sm' onClick={handleLogout}>
@@ -175,7 +175,7 @@ export function RetroHeader({ userName }: RetroHeaderProps) {
                           onClick={() => setMobileMenuOpen(false)}
                         >
                           <User className='h-4 w-4 mr-2' />
-                          PROFILE
+                          {user?.full_name?.split(" ")[0]?.toUpperCase() || "PROFILE"}
                         </Link>
                       </Button>
                       <Button variant='ghost' onClick={handleLogout}>

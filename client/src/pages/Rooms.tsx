@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import PageLoader from "@/components/ui/PageLoader";
 
 // Extended room type with booking info
 interface BookedSlot {
@@ -344,16 +345,7 @@ const Rooms = () => {
   const pastBookings = bookings.filter((b) => b.status !== "confirmed");
 
   if (loadingRooms || loadingPublic || loadingUserBookings) {
-    return (
-      <RetroBackground>
-        <RetroHeader />
-        <div className='flex items-center justify-center min-h-[60vh]'>
-          <div className='font-pixel text-xl text-primary animate-pulse'>
-            LOADING ROOMS...
-          </div>
-        </div>
-      </RetroBackground>
-    );
+    return <PageLoader />;
   }
 
   return (

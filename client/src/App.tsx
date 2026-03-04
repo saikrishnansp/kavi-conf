@@ -17,7 +17,7 @@ import Register from "./pages/Register";
 // Lazy loaded — only fetched when the user navigates to the route
 const Agenda  = lazy(() => import("./pages/Agenda"));
 const Book    = lazy(() => import("./pages/Book"));
-const Admin   = lazy(() => import("./pages/Admin"));
+const Admin   = lazy(() => import("./pages/Admin/Admin"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Rooms   = lazy(() => import("./pages/Rooms"));
 

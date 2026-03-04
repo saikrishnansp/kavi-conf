@@ -49,6 +49,19 @@ def read_users(
     users = session.exec(statement).all()
     return users
 
+@router.get("/directory", response_model=List[UserResponse])
+def read_users_directory(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Get a list of users for autocomplete purposes.
+    Available to all authenticated users.
+    """
+    statement = select(User)
+    users = session.exec(statement).all()
+    return users
+
 @router.get("/count")
 def read_users_count(
     session: Annotated[Session, Depends(get_session)],

@@ -336,7 +336,7 @@ def list_events(
                 'htmlLink': event.get('htmlLink'),
                 'meet_link': event.get('hangoutLink'),
                 'organizer': event.get('organizer', {}).get('email'),
-                'attendees': event.get('attendees', [])
+                'attendees': [a.get('email') for a in event.get('attendees', []) if not a.get('resource')]
             })
         return formatted_events
     except Exception as e:

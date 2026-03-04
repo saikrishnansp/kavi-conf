@@ -25,8 +25,8 @@ const AttendeeSelect = ({
 
   // Task 1: Fetch and Filter Users
   const { data: users = [] } = useQuery({
-    queryKey: ["users-all"],
-    queryFn: () => usersApi.list({ limit: 1000 }), // Fetching all users to filter locally as requested
+    queryKey: ["users-directory"],
+    queryFn: () => usersApi.getDirectory(),
   });
 
   const filteredUsers = useMemo(() => {
@@ -143,7 +143,7 @@ const AttendeeSelect = ({
                     <div className="flex items-center gap-4 mt-0.5">
                       <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                         <Mail className="h-3 w-3" />
-                        {user.email}
+                        {user.email}  
                       </span>
                       {user.position && (
                         <span className="text-xs text-muted-foreground flex items-center gap-1.5">

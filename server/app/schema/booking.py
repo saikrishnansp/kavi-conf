@@ -79,6 +79,20 @@ class BookingTransfer(BaseModel):
     )
 
 
+class AgendaItem(BaseModel):
+    id: str
+    subject: str
+    start_time: str
+    end_time: str
+    status: str
+    show_book_btn: bool = False
+    location: Optional[str] = None
+    room_id: Optional[str] = None
+    booking_id: Optional[int] = None
+    attendees: List[str] = []
+    meet_link: Optional[str] = None
+
+
 class AttendeeDetail(BaseModel):
     full_name: str
     email: str

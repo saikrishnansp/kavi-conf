@@ -15,6 +15,7 @@ from app.schema.booking import (
     BookingListResponse,
     BookingUpdate,
     BookingTransfer,
+    AgendaItem,
 )
 from app.core.websocket import manager
 from app.utils.rate_limit import rate_limit_api
@@ -52,7 +53,7 @@ def get_bookings_range(
     return hydrated_items
 
 
-@router.get("/agenda")
+@router.get("/agenda", response_model=list[AgendaItem])
 def get_agenda(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -120,7 +121,9 @@ def get_agenda(
                 "end_time": g_event['end'],
                 "status": "EXTERNAL",
                 "show_book_btn": not is_full_day,
-                "location": g_event.get('location')
+                "location": g_event.get('location'),
+                "attendees": g_event.get('attendees', []),
+                "meet_link": g_event.get('meet_link')
             })
             
     # Sort by start time
@@ -281,8 +284,9 @@ def create_booking(
                     attendee_emails.append(current_user.email)
 
                 try:
+                    success = False
                     if google_event_id:
-                        # SEAMLESS BOOKING: Update existing event
+                        # SEAMLESS BOOKING: Try to update existing event
                         from app.utils.google_calendar import update_event
                         success = update_event(
                             event_id=google_event_id,
@@ -296,9 +300,10 @@ def create_booking(
                             send_updates='all'
                         )
                         if not success:
-                            logger.error(f"Failed to update existing Google event {google_event_id} for user {current_user.email}")
-                    else:
-                        # STANDARD BOOKING: Create new event
+                            logger.error(f"Failed to update existing Google event {google_event_id}. Falling back to creation on room calendar.")
+
+                    if not success:
+                        # STANDARD BOOKING or FALLBACK: Create new event on the room calendar
                         from app.utils.google_calendar import create_event
                         meet_link, calendar_link, google_event_id = create_event(
                             subject=booking_in.subject,

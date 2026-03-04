@@ -44,6 +44,11 @@ export const usersApi = {
     return response.data;
   },
 
+  getDirectory: async (): Promise<UserResponse[]> => {
+    const response = await api.get<UserResponse[]>("/users/directory");
+    return response.data;
+  },
+
   getCount: async (): Promise<{ total_employees: number }> => {
     const response = await api.get<{ total_employees: number }>("/users/count");
     return response.data;
