@@ -5,7 +5,6 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
-from pwdlib import PasswordHash
 from sqlmodel import Session
 
 from app.core.config import get_settings
@@ -15,18 +14,6 @@ from app.db_models.user import User
 settings = get_settings()
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
-
-password_hash = PasswordHash.recommended()
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain password against its hash."""
-    return password_hash.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """Generate a hash from a plain password."""
-    return password_hash.hash(password)
 
 
 def create_access_token(

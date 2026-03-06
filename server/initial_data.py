@@ -1,6 +1,5 @@
 from sqlmodel import Session, select
 from app.core.database import engine, init_db
-from app.core.security import get_password_hash
 from app.db_models.user import User
 from app.db_models.room import Room
 
@@ -15,7 +14,6 @@ def seed_data():
                 employee_id="ADM-001",
                 email=admin_email,
                 full_name="System Admin",
-                password_hash=get_password_hash("admin123"),
                 position="Director" # This makes them admin in this system
             )
             session.add(admin)

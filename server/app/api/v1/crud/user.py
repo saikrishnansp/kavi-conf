@@ -1,7 +1,6 @@
 from sqlmodel import Session, select
 from app.db_models.user import User
 from app.schema.auth import UserCreate, UserUpdate
-from app.core.security import get_password_hash, verify_password
 from typing import Optional
 
 
@@ -26,9 +25,6 @@ def create_user(session: Session, user_create: UserCreate, commit: bool = True) 
         full_name=user_create.full_name,
         position=user_create.position,
         employee_id=user_create.employee_id,
-        # MySQL strictly enforces NOT NULL on password_hash (schema mismatch from SQLite migration).
-        # This app uses OTP-only login, so we store a sentinel value instead of a real hash.
-        password_hash="OTP_LOGIN_ONLY",
     )
     session.add(db_user)
     if commit:

@@ -152,15 +152,14 @@ def verify_otp(verify_in: OTPVerify, session: Annotated[Session, Depends(get_ses
 @router.get("/login/google")
 async def google_login(
     sso: Annotated[GoogleSSO, Depends(get_google_sso)],
-    access_type: str = "online",
-    prompt: str = ""
+    access_type: str = "offline"
 ):
     """
     Redirect to Google login page.
     """
     async with sso:
         return await sso.get_login_redirect(
-            params={"prompt": prompt or "consent", "access_type": access_type or "offline"}
+            params={"access_type": access_type}
         )
 
 

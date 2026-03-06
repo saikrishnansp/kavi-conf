@@ -2,7 +2,6 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 from app.utils.validation import (
-    validate_password_complexity,
     validate_email_domain,
     validate_employee_id,
 )
