@@ -48,8 +48,10 @@ def validate_booking_times(start_time: datetime, end_time: datetime) -> None:
     if end_time.tzinfo is None:
         end_time = end_time.replace(tzinfo=IST)
 
-    if start_time <= now:
-        raise ValueError("Booking start time must be in the future")
+    if start_time <= now.replace(minute=now.minute - 5 if now.minute >= 5 else 0):
+        # Allow 5 mins grace for network latency/server processing
+        if start_time <= now.replace(second=0, microsecond=0) - timedelta(minutes=5):
+             raise ValueError("Booking start time must be in the future")
 
     if end_time <= start_time:
         raise ValueError("End time must be after start time")

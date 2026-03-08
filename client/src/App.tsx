@@ -19,7 +19,7 @@ const Agenda  = lazy(() => import("./pages/Agenda"));
 const Book    = lazy(() => import("./pages/Book"));
 const Admin   = lazy(() => import("./pages/Admin/Admin"));
 const Profile = lazy(() => import("./pages/Profile"));
-const Rooms   = lazy(() => import("./pages/Rooms"));
+const Rooms   = lazy(() => import("./pages/Rooms/Rooms"));
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Pencil, Power, Trash2, CheckCircle, XCircle, ArrowRight } from "lucide-react";
+import { Users, Pencil, Power, Trash2, CheckCircle, XCircle, ArrowRight, Lamp } from "lucide-react";
 import type { Room } from "@/types/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { roomsApi } from "@/lib/api/rooms";
@@ -33,7 +33,7 @@ export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       toast.success(room.is_active ? "ROOM DEACTIVATED" : "ROOM ACTIVATED", {
-        description: `${room.name} is now ${room.is_active ? "offline" : "online"}.`,
+        description: `${room.room_id} is now ${room.is_active ? "offline" : "online"}.`,
       });
     },
     onError: (error: any) => {
@@ -48,7 +48,7 @@ export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       toast.error("ROOM DELETED", {
-        description: `${room.name} has been removed.`,
+        description: `${room.room_id} has been removed.`,
       });
     },
     onError: (error: any) => {
@@ -77,8 +77,7 @@ export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-base truncate max-w-[150px]">{room.name}</CardTitle>
-            <p className="font-retro text-lg text-muted-foreground">Room #{room.room_number}</p>
+            <CardTitle className="text-base truncate max-w-[150px] font-pixel">{room.room_id}</CardTitle>
           </div>
           
           <div className="flex items-center gap-3">
@@ -119,7 +118,7 @@ export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
                   <AlertDialogHeader>
                     <AlertDialogTitle className="font-pixel text-sm text-destructive">ARE YOU SURE?</AlertDialogTitle>
                     <AlertDialogDescription className="font-retro text-lg">
-                      This will permanently delete <strong>{room.name}</strong>. This action cannot be undone and will fail if the room has booking history.
+                      This will permanently delete <strong>{room.room_id}</strong>. This action cannot be undone and will fail if the room has booking history.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -148,11 +147,20 @@ export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Users className="h-4 w-4 text-primary" />
-          <span className="font-retro text-lg">{room.capacity} SEATS</span>
-          {!room.is_active && (
-            <Badge variant="outline" className="ml-2 font-retro text-[10px] opacity-70">OFFLINE</Badge>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="font-retro text-lg">{room.capacity} SEATS</span>
+            {!room.is_active && (
+              <Badge variant="outline" className="ml-2 font-retro text-[10px] opacity-70">OFFLINE</Badge>
+            )}
+          </div>
+
+          {room.amenities && (
+            <div className="flex items-start gap-2 text-muted-foreground">
+              <Lamp className="h-4 w-4 mt-0.5 text-accent shrink-0" />
+              <span className="font-retro text-sm line-clamp-2">{room.amenities}</span>
+            </div>
           )}
         </div>
 

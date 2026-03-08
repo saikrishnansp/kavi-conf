@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -48,18 +49,16 @@ export const RoomsTab = () => {
 
   const [newRoom, setNewRoom] = useState<RoomCreate>({
     room_id: "",
-    name: "",
-    room_number: 0,
     capacity: 0,
+    amenities: "",
     is_split: false,
     parent_room_id: "",
   });
 
   const [editRoom, setEditRoom] = useState<RoomCreate>({
     room_id: "",
-    name: "",
-    room_number: 0,
     capacity: 0,
+    amenities: "",
     is_split: false,
     parent_room_id: "",
   });
@@ -76,7 +75,7 @@ export const RoomsTab = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
       setIsAddRoomOpen(false);
-      setNewRoom({ room_id: "", name: "", room_number: 0, capacity: 0, is_split: false, parent_room_id: "" });
+      setNewRoom({ room_id: "", capacity: 0, amenities: "", is_split: false, parent_room_id: "" });
       toast.success("ROOM ADDED", { description: "The new room has been created successfully." });
     },
     onError: (error: any) => {
@@ -104,7 +103,7 @@ export const RoomsTab = () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
       setIsDeleteDialogOpen(false);
       setSelectedRoom(null);
-      toast.success("ROOM DELETED", { description: "The room has been removed." });
+      toast.error("ROOM DELETED", { description: "The room has been removed." });
     },
     onError: (error: any) => {
       toast.error("ERROR", { description: error.response?.data?.detail || "Failed to delete room" });
@@ -112,7 +111,7 @@ export const RoomsTab = () => {
   });
 
   const handleAddRoom = () => {
-    if (!newRoom.name || !newRoom.room_id || !newRoom.room_number || !newRoom.capacity) {
+    if (!newRoom.room_id || !newRoom.capacity) {
       toast.error("ERROR", {
         description: "Please fill in all required fields",
       });
@@ -121,7 +120,6 @@ export const RoomsTab = () => {
     
     const payload = {
       ...newRoom,
-      name: newRoom.name.toUpperCase(),
       parent_room_id: newRoom.is_split ? newRoom.parent_room_id : undefined
     };
     
@@ -139,9 +137,8 @@ export const RoomsTab = () => {
     setSelectedRoom(room);
     setEditRoom({
       room_id: room.room_id,
-      name: room.name,
-      room_number: room.room_number,
       capacity: room.capacity,
+      amenities: room.amenities || "",
       is_split: room.is_split,
       parent_room_id: room.parent_room_id || "",
     });
@@ -149,7 +146,7 @@ export const RoomsTab = () => {
   };
 
   const handleSaveEdit = () => {
-    if (!selectedRoom || !editRoom.name || !editRoom.room_id || !editRoom.capacity) {
+    if (!selectedRoom || !editRoom.room_id || !editRoom.capacity) {
       toast.error("ERROR", {
         description: "Please fill in all required fields",
       });
@@ -159,9 +156,8 @@ export const RoomsTab = () => {
     updateRoomMutation.mutate({
       roomId: selectedRoom.room_id,
       data: {
-        name: editRoom.name.toUpperCase(),
-        room_number: editRoom.room_number,
         capacity: editRoom.capacity,
+        amenities: editRoom.amenities,
         is_split: editRoom.is_split,
         parent_room_id: editRoom.is_split ? editRoom.parent_room_id : null
       }
@@ -201,35 +197,14 @@ export const RoomsTab = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="room_id" className="font-retro">Room ID (Unique)</Label>
-                <Input
-                  id="room_id"
-                  value={newRoom.room_id}
-                  onChange={(e) => setNewRoom({ ...newRoom, room_id: e.target.value })}
-                  placeholder="e.g., 101-CONF-A"
-                  className="font-retro"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="name" className="font-retro">Room Name</Label>
-                <Input
-                  id="name"
-                  value={newRoom.name}
-                  onChange={(e) => setNewRoom({ ...newRoom, name: e.target.value })}
-                  placeholder="e.g., NEON LOUNGE"
-                  className="font-retro"
-                />
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="room_number" className="font-retro">Number</Label>
+                  <Label htmlFor="room_id" className="font-retro">Room ID (Unique)</Label>
                   <Input
-                    id="room_number"
-                    type="number"
-                    value={newRoom.room_number || ""}
-                    onChange={(e) => setNewRoom({ ...newRoom, room_number: parseInt(e.target.value) || 0 })}
-                    placeholder="101"
+                    id="room_id"
+                    value={newRoom.room_id}
+                    onChange={(e) => setNewRoom({ ...newRoom, room_id: e.target.value })}
+                    placeholder="e.g., 101-CONF-A"
                     className="font-retro"
                   />
                 </div>
@@ -244,6 +219,17 @@ export const RoomsTab = () => {
                     className="font-retro"
                   />
                 </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="amenities" className="font-retro">Amenities</Label>
+                <Textarea
+                  id="amenities"
+                  value={newRoom.amenities}
+                  onChange={(e) => setNewRoom({ ...newRoom, amenities: e.target.value })}
+                  placeholder="e.g., Projector, Whiteboard..."
+                  className="font-retro"
+                  rows={2}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="is_split" className="font-retro">Splittable Room</Label>
@@ -266,7 +252,7 @@ export const RoomsTab = () => {
                     <SelectContent>
                       {rooms.filter(r => !r.is_split).map((room) => (
                         <SelectItem key={room.room_id} value={room.room_id} className="font-retro">
-                          {room.name} (#{room.room_number})
+                          {room.room_id}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -292,7 +278,7 @@ export const RoomsTab = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-border">
-                  <th className="text-left p-3 font-retro text-sm text-muted-foreground">ROOM</th>
+                  <th className="text-left p-3 font-retro text-sm text-muted-foreground">ROOM ID</th>
                   <th className="text-left p-3 font-retro text-sm text-muted-foreground">CAPACITY</th>
                   <th className="text-left p-3 font-retro text-sm text-muted-foreground">AVAILABILITY</th>
                   <th className="text-left p-3 font-retro text-sm text-muted-foreground">STATUS</th>
@@ -320,8 +306,7 @@ export const RoomsTab = () => {
                     return (
                       <tr key={room.room_id} className="border-b border-border hover:bg-muted/5">
                         <td className="p-3">
-                          <p className="font-pixel text-xs">{room.name}</p>
-                          <p className="font-retro text-sm text-muted-foreground">#{room.room_number}</p>
+                          <p className="font-pixel text-xs">{room.room_id}</p>
                         </td>
                         <td className="p-3 font-retro text-lg">{room.capacity} seats</td>
                         <td className="p-3">
@@ -360,7 +345,7 @@ export const RoomsTab = () => {
                             </Button>
                             <Button 
                               variant="destructive" 
-                              size="sm"
+                              size="sm" 
                               onClick={() => handleDeletePrompt(room)}
                               title="Delete Room"
                             >
@@ -385,41 +370,30 @@ export const RoomsTab = () => {
           <DialogHeader>
             <DialogTitle className="font-pixel text-sm text-primary">EDIT ROOM</DialogTitle>
             <DialogDescription className="font-retro text-lg">
-              Update the room details.
+              Update details for {selectedRoom?.room_id}.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit_name" className="font-retro">Room Name</Label>
+              <Label htmlFor="edit_capacity" className="font-retro">Capacity</Label>
               <Input
-                id="edit_name"
-                value={editRoom.name}
-                onChange={(e) => setEditRoom({ ...editRoom, name: e.target.value })}
-                placeholder="e.g., NEON LOUNGE"
+                id="edit_capacity"
+                type="number"
+                value={editRoom.capacity || ""}
+                onChange={(e) => setEditRoom({ ...editRoom, capacity: parseInt(e.target.value) || 0 })}
                 className="font-retro"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit_room_number" className="font-retro">Number</Label>
-                <Input
-                  id="edit_room_number"
-                  type="number"
-                  value={editRoom.room_number || ""}
-                  onChange={(e) => setEditRoom({ ...editRoom, room_number: parseInt(e.target.value) || 0 })}
-                  className="font-retro"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit_capacity" className="font-retro">Capacity</Label>
-                <Input
-                  id="edit_capacity"
-                  type="number"
-                  value={editRoom.capacity || ""}
-                  onChange={(e) => setEditRoom({ ...editRoom, capacity: parseInt(e.target.value) || 0 })}
-                  className="font-retro"
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_amenities" className="font-retro">Amenities</Label>
+              <Textarea
+                id="edit_amenities"
+                value={editRoom.amenities}
+                onChange={(e) => setEditRoom({ ...editRoom, amenities: e.target.value })}
+                placeholder="e.g., Projector, Whiteboard..."
+                className="font-retro"
+                rows={2}
+              />
             </div>
             <div className="flex items-center justify-between">
               <Label htmlFor="edit_is_split" className="font-retro">Splittable Room</Label>
@@ -442,7 +416,7 @@ export const RoomsTab = () => {
                   <SelectContent>
                     {rooms.filter(r => !r.is_split && r.room_id !== editRoom.room_id).map((room) => (
                       <SelectItem key={room.room_id} value={room.room_id} className="font-retro">
-                        {room.name} (#{room.room_number})
+                        {room.room_id}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -468,7 +442,7 @@ export const RoomsTab = () => {
           <AlertDialogHeader>
             <AlertDialogTitle className="font-pixel text-sm text-destructive">DELETE ROOM</AlertDialogTitle>
             <AlertDialogDescription className="font-retro text-lg">
-              This room has no future bookings. Are you sure you want to permanently delete <span className="text-primary font-bold">{selectedRoom?.name}</span>?
+              This room has no future bookings. Are you sure you want to permanently delete <span className="text-primary font-bold">{selectedRoom?.room_id}</span>?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

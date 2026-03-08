@@ -80,6 +80,16 @@ const Book = () => {
     queryFn: () => roomsApi.getAll(),
   });
 
+  // Handle preselectedRoomId
+  useEffect(() => {
+    if (location.state?.preselectedRoomId && roomsList?.items) {
+      const room = roomsList.items.find(r => r.room_id === location.state.preselectedRoomId);
+      if (room) {
+        setForm({ ...form, selectedRoom: room });
+      }
+    }
+  }, [location.state?.preselectedRoomId, roomsList, setForm]);
+
   // 2. Fetch Public Bookings for selected dates
   const dateRange = useMemo(() => {
     if (dates.length === 0)
@@ -183,17 +193,8 @@ const Book = () => {
     const firstDate = sortedDates[0];
     const otherDates = sortedDates.slice(1);
 
-    const formatDateWithOffset = (date: Date) => {
-      const pad = (num: number) => String(num).padStart(2, '0');
-      const offset = -date.getTimezoneOffset();
-      const sign = offset >= 0 ? '+' : '-';
-      const offH = pad(Math.floor(Math.abs(offset) / 60));
-      const offM = pad(Math.abs(offset) % 60);
-      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sign}${offH}:${offM}`;
-    };
-
-    const start = formatDateWithOffset(setDateTime(firstDate, startTime));
-    const end = formatDateWithOffset(setDateTime(firstDate, endTime));
+    const start = setDateTime(firstDate, startTime).toISOString();
+    const end = setDateTime(firstDate, endTime).toISOString();
 
     const bookingData: BookingCreate = {
       room_id: selectedRoom.room_id,
@@ -202,7 +203,7 @@ const Book = () => {
       subject: subject,
       description: description,
       attendees: attendees,
-      additional_dates: otherDates.map(d => formatDateWithOffset(d)),
+      additional_dates: otherDates.map(d => setDateTime(d, startTime).toISOString()),
       google_event_id: googleEventId,
       meet_link: meetLink,
     };

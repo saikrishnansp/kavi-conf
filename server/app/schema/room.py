@@ -5,8 +5,8 @@ from typing import Optional, List, Union
 
 class RoomBase(BaseModel):
     room_id: str = Field(..., description="Unique room identifier (e.g. '101-Conference-A')")
-    name: str = Field(..., description="Display name of the room")
     capacity: int = Field(..., gt=0)
+    amenities: Optional[str] = Field(None, description="List of amenities (e.g. 'Projector, Whiteboard')")
     is_split: bool = False
     parent_room_id: Optional[str] = None
     # Frontend sends this, we accept it to prevent 422 errors, but it's optional
@@ -31,8 +31,8 @@ class RoomCreate(RoomBase):
 
 class RoomUpdate(BaseModel):
     room_id: Optional[str] = None
-    name: Optional[str] = None
     capacity: Optional[int] = Field(None, gt=0)
+    amenities: Optional[str] = None
     is_split: Optional[bool] = None
     parent_room_id: Optional[str] = None
     is_active: Optional[bool] = None
@@ -45,9 +45,6 @@ class RoomResponse(RoomBase):
     created_at: datetime
     current_booking: Optional[BookingSnippet] = None
     next_available_at: Optional[datetime] = None
-    # We output the string parent_room_id, but we might need to fetch it 
-    # since the DB model has the INT id. 
-    # For simplicity, we stick to the base fields.
 
 
 class RoomListResponse(BaseModel):

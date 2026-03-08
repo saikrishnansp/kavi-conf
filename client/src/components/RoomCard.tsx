@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Layers, ArrowRight } from "lucide-react";
+import { Users, Layers, ArrowRight, Lamp } from "lucide-react";
 import type { Room } from "@/types/api";
 
 interface RoomCardProps {
@@ -30,7 +30,7 @@ export function RoomCard({ room, onBook }: RoomCardProps) {
       
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
-          <CardTitle className="text-base leading-tight">{room.name}</CardTitle>
+          <CardTitle className="text-base leading-tight font-pixel">{room.room_id}</CardTitle>
           <Badge
             variant={status === "AVAILABLE" ? "default" : "destructive"}
             className="font-retro text-xs"
@@ -38,21 +38,27 @@ export function RoomCard({ room, onBook }: RoomCardProps) {
             {status}
           </Badge>
         </div>
-        <p className="font-retro text-2xl text-muted-foreground">
-          Room #{room.room_number}
-        </p>
       </CardHeader>
       
       <CardContent className="space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-foreground">
-            <Users className="h-5 w-5 text-primary" />
-            <span className="font-retro text-xl">{room.capacity} SEATS</span>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-foreground">
+              <Users className="h-5 w-5 text-primary" />
+              <span className="font-retro text-xl">{room.capacity} SEATS</span>
+            </div>
+            {room.is_split && (
+              <div className="flex items-center gap-2 text-secondary">
+                <Layers className="h-5 w-5" />
+                <span className="font-retro text-lg">SPLIT</span>
+              </div>
+            )}
           </div>
-          {room.is_split && (
-            <div className="flex items-center gap-2 text-secondary">
-              <Layers className="h-5 w-5" />
-              <span className="font-retro text-lg">SPLIT</span>
+
+          {room.amenities && (
+            <div className="flex items-start gap-2 text-muted-foreground">
+              <Lamp className="h-4 w-4 mt-0.5 text-accent shrink-0" />
+              <span className="font-retro text-sm line-clamp-2">{room.amenities}</span>
             </div>
           )}
         </div>

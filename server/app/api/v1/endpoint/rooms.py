@@ -225,8 +225,6 @@ def update_room(
             )
 
         # Cycle check
-        # We need to trace up from the NEW parent
-        # room_in.parent_room_id is a STRING here.
         current_check_id = room_in.parent_room_id
         depth = 0
         max_depth = 50
@@ -240,14 +238,7 @@ def update_room(
             if not p_room:
                 break
             
-            # Get parent's string ID for next iteration
-            # p_room.parent_room_id is INT. We need to fetch that object to get the string ID.
-            if p_room.parent_room_id:
-                grandparent = session.get(Room, p_room.parent_room_id)
-                current_check_id = grandparent.room_id if grandparent else None
-            else:
-                current_check_id = None
-                
+            current_check_id = p_room.parent_room_id
             depth += 1
 
     updated_room = room_crud.update_room(session, db_room, room_in)
@@ -274,7 +265,6 @@ def delete_room(
     """
     Delete a room.
     """
-    # ... (Same as your existing delete logic, but check Booking/Room models import)
     # Check if bookings exist
     statement = select(Booking).where(Booking.room_id == room_id)
     has_history = session.exec(statement).first()
@@ -285,13 +275,8 @@ def delete_room(
             detail="Room has booking history and cannot be deleted. Please deactivate it instead.",
         )
 
-    # Check children (using parent_room_id INT FK)
-    # First get the room object to know its ID
-    room_obj = room_crud.get_room_by_id(session, room_id)
-    if not room_obj:
-        raise HTTPException(status_code=404, detail="Room not found")
-        
-    statement = select(Room).where(Room.parent_room_id == room_obj.id)
+    # Check children
+    statement = select(Room).where(Room.parent_room_id == room_id)
     has_children = session.exec(statement).first()
     if has_children:
         raise HTTPException(

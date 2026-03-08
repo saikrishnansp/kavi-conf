@@ -30,13 +30,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowRightLeft, Edit, XCircle } from "lucide-react";
 import { useState, useEffect } from "react";
-import type { AttendeeDetail } from "@/types/api";
+import type { AttendeeDetail, Room } from "@/types/api";
 
 export interface Booking {
   id: number;
   room_id: string;
-  roomName: string;
-  roomNumber: number;
   subject: string;
   description?: string;
   bookedBy: string;
@@ -46,14 +44,6 @@ export interface Booking {
   attendees: number;
   attendees_list: AttendeeDetail[];
   status: "confirmed" | "completed" | "cancelled";
-}
-
-interface Room {
-  room_id: string;
-  name: string;
-  room_number: number;
-  capacity: number;
-  is_active: boolean;
 }
 
 interface EditBookingDialogProps {
@@ -116,7 +106,7 @@ export function EditBookingDialog({ booking, isOpen, onClose, onSave }: EditBook
             EDIT BOOKING
           </DialogTitle>
           <DialogDescription className="font-retro text-lg">
-            Modify booking details for {booking.roomName}
+            Modify booking details for {booking.room_id}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -207,7 +197,7 @@ export function CancelBookingDialog({ booking, isOpen, onClose, onConfirm }: Can
             CANCEL BOOKING
           </AlertDialogTitle>
           <AlertDialogDescription className="font-retro text-lg">
-            Are you sure you want to cancel <span className="text-primary font-bold">"{booking.subject}"</span> in {booking.roomName} on {booking.date}?
+            Are you sure you want to cancel <span className="text-primary font-bold">"{booking.subject}"</span> in {booking.room_id} on {booking.date}?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -239,7 +229,7 @@ export function TransferBookingDialog({ booking, rooms, isOpen, onClose, onTrans
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
 
   const availableRooms = rooms.filter(r => 
-    r.is_active && r.room_number !== booking?.roomNumber
+    r.is_active && r.room_id !== booking?.room_id
   );
 
   const handleTransfer = () => {
@@ -266,7 +256,7 @@ export function TransferBookingDialog({ booking, rooms, isOpen, onClose, onTrans
         <div className="grid gap-4 py-4">
           <div className="p-3 rounded-sm bg-muted/20 border border-border">
             <p className="font-retro text-sm text-muted-foreground">Current Room</p>
-            <p className="font-pixel text-xs text-foreground">{booking.roomName} #{booking.roomNumber}</p>
+            <p className="font-pixel text-xs text-foreground">{booking.room_id}</p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="newRoom" className="font-retro">Transfer To</Label>
@@ -277,7 +267,7 @@ export function TransferBookingDialog({ booking, rooms, isOpen, onClose, onTrans
               <SelectContent>
                 {availableRooms.map((room) => (
                   <SelectItem key={room.room_id} value={room.room_id} className="font-retro">
-                    {room.name} #{room.room_number} (Cap: {room.capacity})
+                    {room.room_id} (Cap: {room.capacity})
                   </SelectItem>
                 ))}
               </SelectContent>

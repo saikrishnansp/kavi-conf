@@ -1,58 +1,66 @@
 from sqlmodel import Session, select
-from app.core.database import engine, init_db
+from app.core.dbsession import engine
 from app.db_models.user import User
 from app.db_models.room import Room
+from app.db_models.booking import Booking
+from app.db_models.booking_attendee import BookingAttendee
+from app.db_models.room_hold import RoomHold
+from app.db_models.enums import BookingStatus
+from datetime import datetime, timedelta
+from app.utils.tz import IST
 
 def seed_data():
-    init_db()
     with Session(engine) as session:
-        # Seed Admin User
-        admin_email = "admin@company.com"
-        admin = session.exec(select(User).where(User.email == admin_email)).first()
-        if not admin:
+        # 1. Create Users
+        if not session.exec(select(User)).first():
             admin = User(
-                employee_id="ADM-001",
-                email=admin_email,
+                employee_id="ADMIN001",
+                email="admin@kaviglobal.com",
                 full_name="System Admin",
-                position="Director" # This makes them admin in this system
+                position="Director",
+            )
+            user1 = User(
+                employee_id="DATS-1001",
+                email="user1@kaviglobal.com",
+                full_name="John Doe",
+                position="Developer",
             )
             session.add(admin)
-            session.commit()
-            print(f"Admin user created: {admin_email}")
+            session.add(user1)
 
-        # Seed Rooms
-        grand_hall_id = "ROOM-001"
-        grand_hall = session.exec(select(Room).where(Room.room_id == grand_hall_id)).first()
-        if not grand_hall:
-            grand_hall = Room(
-                room_id=grand_hall_id,
-                name="Grand Hall",
+        # 2. Create Rooms
+        if not session.exec(select(Room)).first():
+            room1 = Room(
+                room_id="ROOM-001",
                 capacity=100,
-                is_split=True
+                amenities="Projector, Sound System, Stage",
+                is_split=True,
+                is_active=True
             )
-            session.add(grand_hall)
-            session.commit()
-            session.refresh(grand_hall)
-            
-            # Sections A/B
-            section_a = Room(
+            session.add(room1)
+            session.flush()
+
+            room1a = Room(
                 room_id="ROOM-001A",
-                name="Grand Hall Section A",
                 capacity=50,
+                amenities="Projector, Whiteboard",
                 is_split=False,
-                parent_room_id=grand_hall.id
+                parent_room_id="ROOM-001",
+                is_active=True
             )
-            section_b = Room(
+            room1b = Room(
                 room_id="ROOM-001B",
-                name="Grand Hall Section B",
                 capacity=50,
+                amenities="Whiteboard, TV",
                 is_split=False,
-                parent_room_id=grand_hall.id
+                parent_room_id="ROOM-001",
+                is_active=True
             )
-            session.add(section_a)
-            session.add(section_b)
-            session.commit()
-            print("Rooms seeded: Grand Hall + Sections A/B")
+            session.add(room1a)
+            session.add(room1b)
+
+        session.commit()
+        print("✅ Initial data seeded successfully!")
 
 if __name__ == "__main__":
     seed_data()

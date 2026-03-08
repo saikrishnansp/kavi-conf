@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import type { Room, RoomCreate } from "@/types/api";
 
@@ -42,9 +43,8 @@ export function EditRoomDialog({
 }: EditRoomDialogProps) {
   const [formData, setFormData] = useState<RoomCreate>({
     room_id: "",
-    name: "",
-    room_number: 0,
     capacity: 0,
+    amenities: "",
     is_split: false,
     parent_room_id: "",
   });
@@ -53,9 +53,8 @@ export function EditRoomDialog({
     if (room) {
       setFormData({
         room_id: room.room_id,
-        name: room.name,
-        room_number: room.room_number,
         capacity: room.capacity,
+        amenities: room.amenities || "",
         is_split: room.is_split,
         parent_room_id: room.parent_room_id || "",
       });
@@ -65,9 +64,8 @@ export function EditRoomDialog({
   const handleSave = () => {
     if (!room) return;
     onSave(room.room_id, {
-      name: formData.name.toUpperCase(),
-      room_number: formData.room_number,
       capacity: formData.capacity,
+      amenities: formData.amenities,
       is_split: formData.is_split,
       parent_room_id: formData.is_split ? formData.parent_room_id : undefined,
     });
@@ -79,41 +77,30 @@ export function EditRoomDialog({
         <DialogHeader>
           <DialogTitle className="font-pixel text-sm text-primary">EDIT ROOM</DialogTitle>
           <DialogDescription className="font-retro text-lg">
-            Update the room details.
+            Update details for {room?.room_id}.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="edit_name" className="font-retro">Room Name</Label>
+            <Label htmlFor="edit_capacity" className="font-retro">Capacity</Label>
             <Input
-              id="edit_name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., NEON LOUNGE"
+              id="edit_capacity"
+              type="number"
+              value={formData.capacity || ""}
+              onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 0 })}
               className="font-retro"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit_room_number" className="font-retro">Number</Label>
-              <Input
-                id="edit_room_number"
-                type="number"
-                value={formData.room_number || ""}
-                onChange={(e) => setFormData({ ...formData, room_number: parseInt(e.target.value) || 0 })}
-                className="font-retro"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit_capacity" className="font-retro">Capacity</Label>
-              <Input
-                id="edit_capacity"
-                type="number"
-                value={formData.capacity || ""}
-                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 0 })}
-                className="font-retro"
-              />
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="edit_amenities" className="font-retro">Amenities</Label>
+            <Textarea
+              id="edit_amenities"
+              value={formData.amenities}
+              onChange={(e) => setFormData({ ...formData, amenities: e.target.value })}
+              placeholder="e.g., Projector, Whiteboard, 4K Display"
+              className="font-retro"
+              rows={2}
+            />
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="edit_is_split" className="font-retro">Splittable Room</Label>
@@ -138,7 +125,7 @@ export function EditRoomDialog({
                     .filter((r) => !r.is_split && r.room_id !== room?.room_id)
                     .map((r) => (
                       <SelectItem key={r.room_id} value={r.room_id} className="font-retro">
-                        {r.name} (#{r.room_number})
+                        {r.room_id}
                       </SelectItem>
                     ))}
                 </SelectContent>

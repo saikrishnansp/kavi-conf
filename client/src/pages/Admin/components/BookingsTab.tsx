@@ -42,8 +42,6 @@ export const BookingsTab = () => {
       return {
         id: b.id,
         room_id: b.room_id,
-        roomName: room?.name || "Unknown Room",
-        roomNumber: room?.room_number || 0,
         subject: b.subject,
         description: b.description,
         bookedBy: b.user_id,
@@ -191,8 +189,7 @@ export const BookingsTab = () => {
                         )}
                         <tr className="border-b border-border hover:bg-muted/5">
                           <td className="p-3">
-                            <p className="font-pixel text-xs">{booking.roomName}</p>
-                            <p className="font-retro text-sm text-muted-foreground">#{booking.roomNumber}</p>
+                            <p className="font-pixel text-xs">{booking.room_id}</p>
                           </td>
                           <td className="p-3 font-retro text-lg">{booking.subject}</td>
                           <td className="p-3 font-retro text-lg text-muted-foreground">{booking.bookedBy}</td>

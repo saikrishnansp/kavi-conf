@@ -60,15 +60,12 @@ const RoomSuggestions = ({
                 >
                   <div className='flex items-start justify-between mb-2'>
                     <span className='font-pixel text-sm'>
-                      {room.name}
+                      {room.room_id}
                     </span>
                     {isSelected && (
                       <CheckCircle className='h-5 w-5 text-primary' />
                     )}
                   </div>
-                  <p className='font-retro text-lg text-muted-foreground mb-2'>
-                    Room #{room.room_id}
-                  </p>
                   <div className='flex items-center justify-between'>
                     <div className='flex items-center gap-2'>
                       <Users className='h-4 w-4 text-primary' />

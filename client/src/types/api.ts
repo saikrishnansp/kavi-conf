@@ -33,12 +33,11 @@ export interface BookingSnippet {
 }
 
 export interface Room {
-  room_id: string; // Changed from id: number
-  name: string;
-  room_number: number;
+  room_id: string;
   capacity: number;
+  amenities: string | null;
   is_split: boolean;
-  parent_room_id?: string | null; // Changed from number
+  parent_room_id?: string | null;
   is_active: boolean;
   created_at: string;
   current_booking?: BookingSnippet | null;
@@ -52,9 +51,8 @@ export interface RoomListResponse {
 
 export interface RoomCreate {
   room_id: string;
-  name: string;
-  room_number: number;
   capacity: number;
+  amenities?: string;
   is_split?: boolean;
   parent_room_id?: string;
   is_active?: boolean;
@@ -62,7 +60,7 @@ export interface RoomCreate {
 
 // Booking Types
 export interface BookingCreate {
-  room_id: string; // Changed to string
+  room_id: string;
   start_time: string;
   end_time: string;
   subject: string;
@@ -81,7 +79,7 @@ export interface AttendeeDetail {
 
 export interface BookingResponse {
   id: number;
-  room_id: string; // Fixed to string
+  room_id: string;
   user_id: string;
   subject: string;
   description?: string;

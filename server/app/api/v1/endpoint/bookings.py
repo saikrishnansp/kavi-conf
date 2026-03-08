@@ -22,6 +22,7 @@ from app.utils.rate_limit import rate_limit_api
 from app.api.v1.crud import booking as booking_crud
 from app.api.v1.crud import room as room_crud
 from app.api.v1.crud import room_hold as room_hold_crud
+from app.utils.email import send_booking_confirmation_email
 
 router = APIRouter(dependencies=[Depends(rate_limit_api)])
 
@@ -358,33 +359,82 @@ def create_booking(
             # Sync refresh
             session.flush()
 
-            # Prepare response data with hydration (using first booking created)
+            # Prepare response data manually to avoid DetachedInstanceError or lazy-load crashes
             hydrated_attendees = booking_crud.hydrate_attendees(session, first_booking.attendees_list)
-            response_data = BookingResponse.model_validate(first_booking)
-            response_data.attendees = hydrated_attendees
             
-            # Prepare broadcast payload for the main booking created
-            broadcast_payload = {
-                "type": "booking_created",
-                "data": {
-                    "booking_id": first_booking.id,
-                    "room_id": first_booking.room_id,
-                    "start_time": first_booking.start_time.isoformat(),
-                    "end_time": first_booking.end_time.isoformat(),
-                    "user_id": first_booking.user_id,
-                    "status": first_booking.status,
-                    "series_count": len(all_time_slots)
-                }
+            # Map attributes manually for the response model
+            response_data = BookingResponse(
+                id=first_booking.id,
+                room_id=first_booking.room_id,
+                user_id=first_booking.user_id,
+                start_time=first_booking.start_time,
+                end_time=first_booking.end_time,
+                subject=first_booking.subject,
+                description=first_booking.description,
+                status=first_booking.status,
+                attendee_count=len(resolved_attendees),
+                attendees=hydrated_attendees,
+                meet_link=first_booking.meet_link,
+                calendar_link=first_booking.calendar_link,
+                google_event_id=first_booking.google_event_id,
+                created_at=first_booking.created_at
+            )
+            
+            # EXTRACTION: Capture all necessary data for background tasks while session is active
+            booking_notify_info = {
+                "id": first_booking.id,
+                "room_id": first_booking.room_id,
+                "subject": first_booking.subject,
+                "start_time_str": first_booking.start_time.strftime("%Y-%m-%d %H:%M"),
+                "end_time_str": first_booking.end_time.strftime("%H:%M"),
+                "start_time_iso": first_booking.start_time.isoformat(),
+                "end_time_iso": first_booking.end_time.isoformat(),
+                "user_id": first_booking.user_id,
+                "status": first_booking.status,
+                "meet_link": first_booking.meet_link,
+                "series_count": len(all_time_slots)
             }
             
-            hold_release_payload = {
-                "type": "hold_released",
-                "data": {
-                    "room_id": new_booking.room_id,
-                    "user_id": current_user.employee_id,
-                    "reason": "booking_finalized"
-                }
+            # Use final new_booking for hold release
+            hold_release_info = {
+                "room_id": new_booking.room_id,
+                "user_id": current_user.employee_id
             }
+
+        # 9. Email Notifications
+        for attendee in resolved_attendees:
+            background_tasks.add_task(
+                send_booking_confirmation_email,
+                email_to=attendee["email"],
+                subject=booking_notify_info["subject"],
+                room_id=booking_notify_info["room_id"],
+                start_time=booking_notify_info["start_time_str"],
+                end_time=booking_notify_info["end_time_str"],
+                meet_link=booking_notify_info["meet_link"]
+            )
+
+        # 10. Broadcast Payloads
+        broadcast_payload = {
+            "type": "booking_created",
+            "data": {
+                "booking_id": booking_notify_info["id"],
+                "room_id": booking_notify_info["room_id"],
+                "start_time": booking_notify_info["start_time_iso"],
+                "end_time": booking_notify_info["end_time_iso"],
+                "user_id": booking_notify_info["user_id"],
+                "status": booking_notify_info["status"],
+                "series_count": booking_notify_info["series_count"]
+            }
+        }
+        
+        hold_release_payload = {
+            "type": "hold_released",
+            "data": {
+                "room_id": hold_release_info["room_id"],
+                "user_id": hold_release_info["user_id"],
+                "reason": "booking_finalized"
+            }
+        }
 
         # Broadcast after transaction commit
         background_tasks.add_task(manager.broadcast, broadcast_payload)
@@ -560,7 +610,7 @@ def update_booking(
                 refresh_token=current_user.google_refresh_token,
                 description=booking_in.description if booking_in.description is not None else db_booking.description,
                 send_updates='all',
-                location=room.name
+                location=room.room_id
             )
 
         # 8. Update DB

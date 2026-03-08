@@ -50,7 +50,7 @@ const BookingConfirmation = ({
                 <div>
                   <span className='text-muted-foreground'>Room:</span>
                   <p className='text-foreground font-pixel text-sm mt-1'>
-                    {selectedRoom.name}
+                    {selectedRoom.room_id}
                   </p>
                 </div>
                 <div>

@@ -188,11 +188,13 @@ def create_booking(
 ) -> Booking:
     booking_data = booking_in.model_dump()
     attendee_identifiers = booking_data.pop("attendees", [])
-    # CRITICAL: additional_dates is not a field in the Booking model
+    # CRITICAL: additional_dates and attendee_count are not fields in the Booking model
     booking_data.pop("additional_dates", None)
+    booking_data.pop("attendee_count", None)
     # Prevent multiple values for keyword argument errors
     booking_data.pop("meet_link", None)
     booking_data.pop("google_event_id", None)
+    booking_data.pop("calendar_link", None)
 
     if resolved_attendees is None:
         resolved_attendees = resolve_attendees(session, attendee_identifiers)
