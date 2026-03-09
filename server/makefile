@@ -141,3 +141,15 @@ lock: ## Update uv.lock (after pyproject.toml changes)
 	@echo "$(YELLOW)🔒 Locking dependencies...$(NC)"
 	uv lock
 	@echo "$(GREEN)✅ Lockfile updated$(NC)"
+
+# Export requirements.txt from poetry.lock with uv fallback
+requirements: ## Export requirements.txt
+	@echo "$(YELLOW)📦 Exporting requirements...$(NC)"
+	@poetry export -f requirements.txt --without-hashes > requirements.txt 2>/dev/null || \
+		( echo "$(YELLOW)⚠️ poetry export failed, falling back to uv pip freeze...$(NC)"; \
+		  uv pip freeze > requirements.txt )
+	@poetry export -f requirements.txt --without-hashes --dev > requirements-dev.txt 2>/dev/null || \
+		( echo "$(YELLOW)⚠️ poetry export dev failed, falling back to uv pip freeze (dev fallback may include all packages)...$(NC)"; \
+		  uv pip freeze > requirements-dev.txt )
+	@echo "$(GREEN)✅ Requirements exported$(NC)"
+

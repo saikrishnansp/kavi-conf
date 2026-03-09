@@ -78,8 +78,11 @@ export const RoomsTab = () => {
       setNewRoom({ room_id: "", capacity: 0, amenities: "", is_split: false, parent_room_id: "" });
       toast.success("ROOM ADDED", { description: "The new room has been created successfully." });
     },
-    onError: (error: any) => {
-      toast.error("ERROR", { description: error.response?.data?.detail || "Failed to create room" });
+    onError: (err: any) => {
+      const backendMessage = err.response?.data?.detail || err.message;
+      toast.error("ACTION FAILED", {
+        description: backendMessage,
+      });
     }
   });
 
@@ -92,8 +95,11 @@ export const RoomsTab = () => {
       setSelectedRoom(null);
       toast.success("ROOM UPDATED", { description: "Room details have been saved." });
     },
-    onError: (error: any) => {
-      toast.error("ERROR", { description: error.response?.data?.detail || "Failed to update room" });
+    onError: (err: any) => {
+      const backendMessage = err.response?.data?.detail || err.message;
+      toast.error("ACTION FAILED", {
+        description: backendMessage,
+      });
     }
   });
 
@@ -105,8 +111,21 @@ export const RoomsTab = () => {
       setSelectedRoom(null);
       toast.error("ROOM DELETED", { description: "The room has been removed." });
     },
-    onError: (error: any) => {
-      toast.error("ERROR", { description: error.response?.data?.detail || "Failed to delete room" });
+    onError: (err: any) => {
+      const detail = err.response?.data?.detail || err.message || "Failed to delete room.";
+      let userFriendlyMessage = detail;
+
+      // Make the backend database constraints user-friendly
+      if (detail.toLowerCase().includes("child") || detail.toLowerCase().includes("parent")) {
+        userFriendlyMessage = "Cannot delete a parent room. Please delete its child rooms first, or Edit this room and toggle 'Active' to off to hide it.";
+      } else if (detail.toLowerCase().includes("history") || detail.toLowerCase().includes("booking")) {
+        userFriendlyMessage = "Cannot delete a room with past bookings. Please Edit this room and toggle 'Active' to off to hide it instead.";
+      }
+
+      toast.error("Action Blocked", {
+        description: userFriendlyMessage,
+        duration: 6000,
+      });
     }
   });
 

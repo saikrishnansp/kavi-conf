@@ -10,13 +10,6 @@ settings = get_settings()
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
-# FOOTER_ADDRESS = """
-
-# 📍 LOCATION:
-# 1st floor, Hari Krupa, 71/1, McNichols Rd, Dasspuram, Chetpet, Chennai, Tamil Nadu 600031.
-# [https://maps.app.goo.gl/vTe7542HSt37uQrS7](https://maps.app.goo.gl/vTe7542HSt37uQrS7)
-
-# """
 
 FOOTER_ADDRESS = """
 <p style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
@@ -26,7 +19,7 @@ FOOTER_ADDRESS = """
   1st floor, Hari Krupa, 71/1, McNichols Rd, Dasspuram, Chetpet, Chennai, Tamil Nadu 600031.<br><br>
   
   <a href="https://www.google.com/maps/search/?api=1&query=1st+floor,+Hari+Krupa,+71/1,+McNichols+Rd,+Dasspuram,+Chetpet,+Chennai,+Tamil+Nadu+600031" target="_blank" rel="noopener noreferrer">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/9/9b/Google_Maps_logo_2020.svg" alt="Open in Google Maps" width="40" style="display: block; border: none;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Google_Maps_icon_%282020%29.svg/512px-Google_Maps_icon_%282020%29.svg.png" alt="Open in Google Maps" width="40" style="display: block; border: none;">
   </a>
 </p>
 """

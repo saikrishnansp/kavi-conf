@@ -10,6 +10,7 @@ import {
   Settings,
   User,
   CheckCircle,
+  BarChart3,
 } from "lucide-react";
 import { roomsApi } from "@/lib/api/rooms";
 import { bookingsApi } from "@/lib/api/bookings";
@@ -18,10 +19,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UsersTab } from "./components/UsersTab";
 import { RoomsTab } from "./components/RoomsTab";
 import { BookingsTab } from "./components/BookingsTab";
+import DashboardTab from "./components/DashboardTab";
 
 const Admin = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("bookings");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   const getLocalDateString = (date: Date) => {
     const pad = (num: number) => String(num).padStart(2, '0');
@@ -130,7 +132,11 @@ const Admin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-xl grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+            <TabsTrigger value="dashboard" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              DASHBOARD
+            </TabsTrigger>
             <TabsTrigger value="bookings" className="gap-2">
               <Calendar className="h-4 w-4" />
               ALL BOOKINGS
@@ -144,6 +150,10 @@ const Admin = () => {
               EMPLOYEES
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="dashboard">
+            <DashboardTab />
+          </TabsContent>
 
           <TabsContent value="bookings">
             <BookingsTab />
