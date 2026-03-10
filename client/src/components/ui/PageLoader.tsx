@@ -22,7 +22,7 @@ const PageLoader = () => (
       <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
         {[...Array(6)].map((_, i) => (
           <div
-            key={i}
+            key={`skeleton-${i}`}
             className='rounded-lg border border-border bg-card p-4 space-y-3'
           >
             <div className='h-5 w-3/4 animate-pulse rounded bg-muted' />

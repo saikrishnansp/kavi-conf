@@ -26,10 +26,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [token, setToken] = useState<string | null>(
-    localStorage.getItem("token"),
+    () => localStorage.getItem("token"),
   );
   const [googleToken, setGoogleToken] = useState<string | null>(
-    localStorage.getItem("google_token"),
+    () => localStorage.getItem("google_token"),
   );
   const [isLoading, setIsLoading] = useState(true);
 

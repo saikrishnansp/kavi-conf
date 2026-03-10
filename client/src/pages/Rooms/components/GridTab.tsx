@@ -100,11 +100,11 @@ export const GridTab = ({
                   <p className='font-retro text-[10px] text-muted-foreground uppercase'>
                     {room.capacity} seats
                   </p>
-                  {room.amenities && (
-                    <p className='font-retro text-[10px] text-accent truncate mt-1' title={room.amenities}>
-                      {room.amenities}
-                    </p>
-                  )}
+                  {/* {room.amenities && (
+                     <p className='font-retro text-[10px] text-accent truncate mt-1' title={room.amenities}>
+                       {room.amenities}
+                     </p>
+                  )} */}
                 </div>
                 {timeSlots.map((time) => {
                   const booking = isSlotBooked(room, time);

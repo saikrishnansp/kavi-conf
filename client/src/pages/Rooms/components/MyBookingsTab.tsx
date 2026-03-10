@@ -38,9 +38,9 @@ export const MyBookingsTab = ({
                 <h3 className='font-retro text-sm text-muted-foreground'>
                   UPCOMING
                 </h3>
-                {activeBookings.map((booking, index) => (
+                {activeBookings.map((booking) => (
                   <div
-                    key={`${booking.id}-${index}`}
+                    key={booking.id}
                     className='p-3 rounded-sm border border-border bg-card/50 space-y-2'
                   >
                     <div className='flex items-start justify-between gap-2'>

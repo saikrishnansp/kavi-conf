@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Users, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,20 +31,42 @@ import { useAuth } from "@/contexts/AuthContext";
 import PageLoader from "@/components/ui/PageLoader";
 import type { UserResponse, UserCreate } from "@/types/api";
 
+interface UsersTabState {
+  userSearch: string;
+  selectedUser: UserResponse | null;
+  isEditUserOpen: boolean;
+  isDeleteUserOpen: boolean;
+  editUserForm: Partial<UserCreate>;
+}
+
 export const UsersTab = () => {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const [userSearch, setUserSearch] = useState("");
-  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
-  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
-  const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false);
-  const [editUserForm, setEditUserForm] = useState<Partial<UserCreate>>({
-    email: "",
-    full_name: "",
-    position: "",
-    employee_id: "",
-  });
+  const [state, setState] = useState<UsersTabState>(() => ({
+    userSearch: "",
+    selectedUser: null,
+    isEditUserOpen: false,
+    isDeleteUserOpen: false,
+    editUserForm: {
+      email: "",
+      full_name: "",
+      position: "",
+      employee_id: "",
+    },
+  }));
+
+  const updateState = useCallback((updates: Partial<UsersTabState>) => {
+    setState((prev) => ({ ...prev, ...updates }));
+  }, []);
+
+  const {
+    userSearch,
+    selectedUser,
+    isEditUserOpen,
+    isDeleteUserOpen,
+    editUserForm,
+  } = state;
 
   const { data: usersData, isLoading: loadingUsers } = useQuery({
     queryKey: ['users', { search: userSearch }],
@@ -64,8 +86,7 @@ export const UsersTab = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['usersCount'] });
-      setIsEditUserOpen(false);
-      setSelectedUser(null);
+      updateState({ isEditUserOpen: false, selectedUser: null });
       toast.success("EMPLOYEE UPDATED", {
         description: "Employee details have been saved.",
       });
@@ -82,8 +103,7 @@ export const UsersTab = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['usersCount'] });
-      setIsDeleteUserOpen(false);
-      setSelectedUser(null);
+      updateState({ isDeleteUserOpen: false, selectedUser: null });
       toast.success("EMPLOYEE REMOVED", {
         description: "The employee has been deleted.",
       });
@@ -91,14 +111,16 @@ export const UsersTab = () => {
   });
 
   const handleEditUser = (userToEdit: UserResponse) => {
-    setSelectedUser(userToEdit);
-    setEditUserForm({
-      email: userToEdit.email,
-      full_name: userToEdit.full_name || "",
-      position: userToEdit.position || "",
-      employee_id: userToEdit.employee_id,
+    updateState({
+      selectedUser: userToEdit,
+      editUserForm: {
+        email: userToEdit.email,
+        full_name: userToEdit.full_name || "",
+        position: userToEdit.position || "",
+        employee_id: userToEdit.employee_id,
+      },
+      isEditUserOpen: true,
     });
-    setIsEditUserOpen(true);
   };
 
   const handleSaveUserEdit = () => {
@@ -122,8 +144,7 @@ export const UsersTab = () => {
   };
 
   const handleDeleteUserPrompt = (userToDelete: UserResponse) => {
-    setSelectedUser(userToDelete);
-    setIsDeleteUserOpen(true);
+    updateState({ selectedUser: userToDelete, isDeleteUserOpen: true });
   };
 
   const handleConfirmDeleteUser = async () => {
@@ -143,8 +164,7 @@ export const UsersTab = () => {
             await usersApi.delete(selectedUser.employee_id, true);
             queryClient.invalidateQueries({ queryKey: ['users'] });
             queryClient.invalidateQueries({ queryKey: ['usersCount'] });
-            setIsDeleteUserOpen(false);
-            setSelectedUser(null);
+            updateState({ isDeleteUserOpen: false, selectedUser: null });
             toast.success("EMPLOYEE REMOVED (FORCED)", {
               description: "The employee and all their active bookings have been deleted.",
             });
@@ -175,7 +195,7 @@ export const UsersTab = () => {
               placeholder="Search by name, email or employee ID..."
               className="font-retro w-64"
               value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
+              onChange={(e) => updateState({ userSearch: e.target.value })}
             />
           </div>
         </CardHeader>
@@ -281,7 +301,7 @@ export const UsersTab = () => {
       </Card>
 
       {/* Edit Employee Dialog */}
-      <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+      <Dialog open={isEditUserOpen} onOpenChange={(open) => updateState({ isEditUserOpen: open })}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="font-pixel text-sm text-primary">
@@ -305,7 +325,7 @@ export const UsersTab = () => {
               <Input
                 value={editUserForm.email || ""}
                 onChange={(e) =>
-                  setEditUserForm({ ...editUserForm, email: e.target.value })
+                  updateState({ editUserForm: { ...editUserForm, email: e.target.value } })
                 }
                 type="email"
                 className="font-retro"
@@ -317,7 +337,7 @@ export const UsersTab = () => {
               <Input
                 value={editUserForm.full_name || ""}
                 onChange={(e) =>
-                  setEditUserForm({ ...editUserForm, full_name: e.target.value })
+                  updateState({ editUserForm: { ...editUserForm, full_name: e.target.value } })
                 }
                 className="font-retro"
                 placeholder="Employee name"
@@ -328,7 +348,7 @@ export const UsersTab = () => {
               <Input
                 value={editUserForm.position || ""}
                 onChange={(e) =>
-                  setEditUserForm({ ...editUserForm, position: e.target.value })
+                  updateState({ editUserForm: { ...editUserForm, position: e.target.value } })
                 }
                 className="font-retro"
                 placeholder="Job title"
@@ -336,7 +356,7 @@ export const UsersTab = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
+            <Button variant="outline" onClick={() => updateState({ isEditUserOpen: false })}>
               CANCEL
             </Button>
             <Button
@@ -354,7 +374,7 @@ export const UsersTab = () => {
       </Dialog>
 
       {/* Delete Employee Confirmation Dialog */}
-      <AlertDialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
+      <AlertDialog open={isDeleteUserOpen} onOpenChange={(open) => updateState({ isDeleteUserOpen: open })}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-pixel text-sm text-destructive">

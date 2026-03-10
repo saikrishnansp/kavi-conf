@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Settings, Loader2, Pencil, Trash2, Power } from "lucide-react";
 import { toast } from "sonner";
@@ -39,29 +39,51 @@ import { roomsApi } from "@/lib/api/rooms";
 import PageLoader from "@/components/ui/PageLoader";
 import type { Room, RoomCreate } from "@/types/api";
 
+interface RoomsTabState {
+  isAddRoomOpen: boolean;
+  isEditRoomOpen: boolean;
+  isDeleteDialogOpen: boolean;
+  selectedRoom: Room | null;
+  newRoom: RoomCreate;
+  editRoom: RoomCreate;
+}
+
 export const RoomsTab = () => {
   const queryClient = useQueryClient();
 
-  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
-  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [state, setState] = useState<RoomsTabState>(() => ({
+    isAddRoomOpen: false,
+    isEditRoomOpen: false,
+    isDeleteDialogOpen: false,
+    selectedRoom: null,
+    newRoom: {
+      room_id: "",
+      capacity: 0,
+      amenities: "",
+      is_split: false,
+      parent_room_id: "",
+    },
+    editRoom: {
+      room_id: "",
+      capacity: 0,
+      amenities: "",
+      is_split: false,
+      parent_room_id: "",
+    }
+  }));
 
-  const [newRoom, setNewRoom] = useState<RoomCreate>({
-    room_id: "",
-    capacity: 0,
-    amenities: "",
-    is_split: false,
-    parent_room_id: "",
-  });
+  const updateState = useCallback((updates: Partial<RoomsTabState>) => {
+    setState((prev) => ({ ...prev, ...updates }));
+  }, []);
 
-  const [editRoom, setEditRoom] = useState<RoomCreate>({
-    room_id: "",
-    capacity: 0,
-    amenities: "",
-    is_split: false,
-    parent_room_id: "",
-  });
+  const {
+    isAddRoomOpen,
+    isEditRoomOpen,
+    isDeleteDialogOpen,
+    selectedRoom,
+    newRoom,
+    editRoom
+  } = state;
 
   const { data: roomsData, isLoading: loadingRooms } = useQuery({
     queryKey: ['rooms'],
@@ -74,8 +96,10 @@ export const RoomsTab = () => {
     mutationFn: roomsApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      setIsAddRoomOpen(false);
-      setNewRoom({ room_id: "", capacity: 0, amenities: "", is_split: false, parent_room_id: "" });
+      updateState({
+        isAddRoomOpen: false,
+        newRoom: { room_id: "", capacity: 0, amenities: "", is_split: false, parent_room_id: "" }
+      });
       toast.success("ROOM ADDED", { description: "The new room has been created successfully." });
     },
     onError: (err: any) => {
@@ -91,8 +115,7 @@ export const RoomsTab = () => {
       roomsApi.update(roomId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      setIsEditRoomOpen(false);
-      setSelectedRoom(null);
+      updateState({ isEditRoomOpen: false, selectedRoom: null });
       toast.success("ROOM UPDATED", { description: "Room details have been saved." });
     },
     onError: (err: any) => {
@@ -107,15 +130,13 @@ export const RoomsTab = () => {
     mutationFn: roomsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      setIsDeleteDialogOpen(false);
-      setSelectedRoom(null);
+      updateState({ isDeleteDialogOpen: false, selectedRoom: null });
       toast.error("ROOM DELETED", { description: "The room has been removed." });
     },
     onError: (err: any) => {
       const detail = err.response?.data?.detail || err.message || "Failed to delete room.";
       let userFriendlyMessage = detail;
 
-      // Make the backend database constraints user-friendly
       if (detail.toLowerCase().includes("child") || detail.toLowerCase().includes("parent")) {
         userFriendlyMessage = "Cannot delete a parent room. Please delete its child rooms first, or Edit this room and toggle 'Active' to off to hide it.";
       } else if (detail.toLowerCase().includes("history") || detail.toLowerCase().includes("booking")) {
@@ -153,15 +174,17 @@ export const RoomsTab = () => {
   };
 
   const handleEditRoom = (room: Room) => {
-    setSelectedRoom(room);
-    setEditRoom({
-      room_id: room.room_id,
-      capacity: room.capacity,
-      amenities: room.amenities || "",
-      is_split: room.is_split,
-      parent_room_id: room.parent_room_id || "",
+    updateState({
+      selectedRoom: room,
+      editRoom: {
+        room_id: room.room_id,
+        capacity: room.capacity,
+        amenities: room.amenities || "",
+        is_split: room.is_split,
+        parent_room_id: room.parent_room_id || "",
+      },
+      isEditRoomOpen: true
     });
-    setIsEditRoomOpen(true);
   };
 
   const handleSaveEdit = () => {
@@ -184,8 +207,7 @@ export const RoomsTab = () => {
   };
 
   const handleDeletePrompt = (room: Room) => {
-    setSelectedRoom(room);
-    setIsDeleteDialogOpen(true);
+    updateState({ selectedRoom: room, isDeleteDialogOpen: true });
   };
 
   const handleDeleteRoom = () => {
@@ -201,7 +223,7 @@ export const RoomsTab = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-pixel text-sm text-foreground">MANAGE ROOMS</h2>
-        <Dialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen}>
+        <Dialog open={isAddRoomOpen} onOpenChange={(open) => updateState({ isAddRoomOpen: open })}>
           <DialogTrigger asChild>
             <Button variant="neon" size="sm">
               <Plus className="h-4 w-4 mr-2" />
@@ -222,7 +244,7 @@ export const RoomsTab = () => {
                   <Input
                     id="room_id"
                     value={newRoom.room_id}
-                    onChange={(e) => setNewRoom({ ...newRoom, room_id: e.target.value })}
+                    onChange={(e) => updateState({ newRoom: { ...newRoom, room_id: e.target.value } })}
                     placeholder="e.g., 101-CONF-A"
                     className="font-retro"
                   />
@@ -233,7 +255,7 @@ export const RoomsTab = () => {
                     id="capacity"
                     type="number"
                     value={newRoom.capacity || ""}
-                    onChange={(e) => setNewRoom({ ...newRoom, capacity: parseInt(e.target.value) || 0 })}
+                    onChange={(e) => updateState({ newRoom: { ...newRoom, capacity: parseInt(e.target.value) || 0 } })}
                     placeholder="8"
                     className="font-retro"
                   />
@@ -244,7 +266,7 @@ export const RoomsTab = () => {
                 <Textarea
                   id="amenities"
                   value={newRoom.amenities}
-                  onChange={(e) => setNewRoom({ ...newRoom, amenities: e.target.value })}
+                  onChange={(e) => updateState({ newRoom: { ...newRoom, amenities: e.target.value } })}
                   placeholder="e.g., Projector, Whiteboard..."
                   className="font-retro"
                   rows={2}
@@ -255,7 +277,7 @@ export const RoomsTab = () => {
                 <Switch
                   id="is_split"
                   checked={newRoom.is_split}
-                  onCheckedChange={(checked) => setNewRoom({ ...newRoom, is_split: checked })}
+                  onCheckedChange={(checked) => updateState({ newRoom: { ...newRoom, is_split: checked } })}
                 />
               </div>
               {newRoom.is_split && (
@@ -263,7 +285,7 @@ export const RoomsTab = () => {
                   <Label htmlFor="parent_room" className="font-retro text-primary">Parent Room</Label>
                   <Select 
                     value={newRoom.parent_room_id} 
-                    onValueChange={(val) => setNewRoom({ ...newRoom, parent_room_id: val })}
+                    onValueChange={(val) => updateState({ newRoom: { ...newRoom, parent_room_id: val } })}
                   >
                     <SelectTrigger className="font-retro">
                       <SelectValue placeholder="Select Parent Room" />
@@ -280,7 +302,7 @@ export const RoomsTab = () => {
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddRoomOpen(false)}>
+              <Button variant="outline" onClick={() => updateState({ isAddRoomOpen: false })}>
                 CANCEL
               </Button>
               <Button variant="neon" onClick={handleAddRoom} disabled={createRoomMutation.isPending}>
@@ -384,7 +406,7 @@ export const RoomsTab = () => {
       </Card>
 
       {/* Edit Room Dialog */}
-      <Dialog open={isEditRoomOpen} onOpenChange={setIsEditRoomOpen}>
+      <Dialog open={isEditRoomOpen} onOpenChange={(open) => updateState({ isEditRoomOpen: open })}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="font-pixel text-sm text-primary">EDIT ROOM</DialogTitle>
@@ -399,7 +421,7 @@ export const RoomsTab = () => {
                 id="edit_capacity"
                 type="number"
                 value={editRoom.capacity || ""}
-                onChange={(e) => setEditRoom({ ...editRoom, capacity: parseInt(e.target.value) || 0 })}
+                onChange={(e) => updateState({ editRoom: { ...editRoom, capacity: parseInt(e.target.value) || 0 } })}
                 className="font-retro"
               />
             </div>
@@ -408,7 +430,7 @@ export const RoomsTab = () => {
               <Textarea
                 id="edit_amenities"
                 value={editRoom.amenities}
-                onChange={(e) => setEditRoom({ ...editRoom, amenities: e.target.value })}
+                onChange={(e) => updateState({ editRoom: { ...editRoom, amenities: e.target.value } })}
                 placeholder="e.g., Projector, Whiteboard..."
                 className="font-retro"
                 rows={2}
@@ -419,7 +441,7 @@ export const RoomsTab = () => {
               <Switch
                 id="edit_is_split"
                 checked={editRoom.is_split}
-                onCheckedChange={(checked) => setEditRoom({ ...editRoom, is_split: checked })}
+                onCheckedChange={(checked) => updateState({ editRoom: { ...editRoom, is_split: checked } })}
               />
             </div>
             {editRoom.is_split && (
@@ -427,7 +449,7 @@ export const RoomsTab = () => {
                 <Label htmlFor="edit_parent_room" className="font-retro text-primary">Parent Room</Label>
                 <Select 
                   value={editRoom.parent_room_id} 
-                  onValueChange={(val) => setEditRoom({ ...editRoom, parent_room_id: val })}
+                  onValueChange={(val) => updateState({ editRoom: { ...editRoom, parent_room_id: val } })}
                 >
                   <SelectTrigger className="font-retro">
                     <SelectValue placeholder="Select Parent Room" />
@@ -444,7 +466,7 @@ export const RoomsTab = () => {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditRoomOpen(false)}>
+            <Button variant="outline" onClick={() => updateState({ isEditRoomOpen: false })}>
               CANCEL
             </Button>
             <Button variant="neon" onClick={handleSaveEdit} disabled={updateRoomMutation.isPending}>
@@ -456,7 +478,7 @@ export const RoomsTab = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => updateState({ isDeleteDialogOpen: open })}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="font-pixel text-sm text-destructive">DELETE ROOM</AlertDialogTitle>

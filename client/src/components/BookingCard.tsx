@@ -93,8 +93,8 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
               </TooltipTrigger>
               <TooltipContent className="bg-popover border-2 border-primary">
                 <ul className="space-y-1 p-1">
-                  {booking.attendees.map((a, i) => (
-                    <li key={i} className="font-retro text-sm flex flex-col">
+                  {booking.attendees.map((a) => (
+                    <li key={a.email} className="font-retro text-sm flex flex-col">
                       <span className="text-primary">{a.full_name}</span>
                       <span className="text-xs text-muted-foreground">{a.email}</span>
                     </li>

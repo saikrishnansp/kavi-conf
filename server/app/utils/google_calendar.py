@@ -16,13 +16,14 @@ FOOTER_ADDRESS = """
   <br><br>
   ---<br>
   📍 <strong>LOCATION:</strong><br>
-  1st floor, Hari Krupa, 71/1, McNichols Rd, Dasspuram, Chetpet, Chennai, Tamil Nadu 600031.<br><br>
+  6th floor, ASV Chandilya Towers, 5/397, Rajiv Gandhi Salai, Nehru Nagar, Thoraipakkam, Chennai, Tamil Nadu 600097.<br><br>
   
-  <a href="https://www.google.com/maps/search/?api=1&query=1st+floor,+Hari+Krupa,+71/1,+McNichols+Rd,+Dasspuram,+Chetpet,+Chennai,+Tamil+Nadu+600031" target="_blank" rel="noopener noreferrer">
+  <a href="https://maps.app.goo.gl/yXe1Gu1V75L41T2T6" target="_blank" rel="noopener noreferrer">
     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Google_Maps_icon_%282020%29.svg/512px-Google_Maps_icon_%282020%29.svg.png" alt="Open in Google Maps" width="40" style="display: block; border: none;">
   </a>
 </p>
 """
+
 
 def get_calendar_service(user_token: str, refresh_token: Optional[str] = None):
     """
