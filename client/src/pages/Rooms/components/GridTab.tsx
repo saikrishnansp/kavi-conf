@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { format } from "date-fns";
-import { Clock, Calendar as CalendarIcon } from "lucide-react";
+import { Clock, Calendar as CalendarIcon, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { BookRoomDialog } from "@/components/BookRoomDialog";
 import {
   Popover,
   PopoverContent,
@@ -11,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { timeSlots } from "@/lib/constants";
 import { RoomWithBookings, BookedSlot } from "../types";
+import { Room } from "@/types/api";
 
 interface GridTabProps {
   selectedDate: Date;
@@ -27,6 +30,8 @@ export const GridTab = ({
   currentTime,
   isSlotBooked,
 }: GridTabProps) => {
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+
   return (
     <div className='space-y-4'>
       <Card>
@@ -71,7 +76,7 @@ export const GridTab = ({
           <div className='min-w-[800px]'>
             {/* Time header */}
             <div className='flex border-b-2 border-border'>
-              <div className='w-36 shrink-0 p-2 font-retro text-lg text-muted-foreground'>
+              <div className='w-48 shrink-0 p-2 font-retro text-lg text-muted-foreground'>
                 ROOM
               </div>
               {timeSlots.map((time) => (
@@ -93,18 +98,25 @@ export const GridTab = ({
                 key={room.room_id}
                 className='flex border-b border-border hover:bg-muted/5'
               >
-                <div className='w-36 shrink-0 p-3'>
-                  <p className='font-pixel text-xs truncate'>
-                    {room.room_id}
-                  </p>
-                  <p className='font-retro text-[10px] text-muted-foreground uppercase'>
-                    {room.capacity} seats
-                  </p>
-                  {/* {room.amenities && (
-                     <p className='font-retro text-[10px] text-accent truncate mt-1' title={room.amenities}>
-                       {room.amenities}
-                     </p>
-                  )} */}
+                <div className='w-48 shrink-0 p-3 flex items-center justify-between gap-2'>
+                  <div className="min-w-0">
+                    <p className='font-pixel text-xs truncate'>
+                      {room.room_id}
+                    </p>
+                    <p className='font-retro text-[10px] text-muted-foreground uppercase'>
+                      {room.capacity} seats
+                    </p>
+                  </div>
+                  <Button 
+                    size="icon" 
+                    variant="neon" 
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => setSelectedRoom(room)}
+                    disabled={!room.is_active}
+                    title="Book Now"
+                  >
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
                 </div>
                 {timeSlots.map((time) => {
                   const booking = isSlotBooked(room, time);
@@ -160,6 +172,12 @@ export const GridTab = ({
           </div>
         </CardContent>
       </Card>
+
+      <BookRoomDialog
+        room={selectedRoom}
+        isOpen={selectedRoom !== null}
+        onClose={() => setSelectedRoom(null)}
+      />
     </div>
   );
 };

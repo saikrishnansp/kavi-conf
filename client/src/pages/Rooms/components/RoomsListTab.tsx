@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { RoomCard } from "@/components/RoomCard";
 import { RoomCardAdmin } from "@/components/ui/RoomCardAdmin";
+import { BookRoomDialog } from "@/components/BookRoomDialog";
 import { RoomWithBookings } from "../types";
 import { Room } from "@/types/api";
 
@@ -7,15 +9,15 @@ interface RoomsListTabProps {
   rooms: RoomWithBookings[];
   isAdmin: boolean;
   onEditRoom: (room: Room) => void;
-  onBookRoom: (room: Room) => void;
 }
 
 export const RoomsListTab = ({
   rooms,
   isAdmin,
   onEditRoom,
-  onBookRoom,
 }: RoomsListTabProps) => {
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+
   return (
     <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
       {rooms.map((room) => {
@@ -25,6 +27,7 @@ export const RoomsListTab = ({
               key={room.room_id}
               room={room}
               onEdit={onEditRoom}
+              onBook={(room) => setSelectedRoom(room)}
             />
           );
         }
@@ -33,10 +36,16 @@ export const RoomsListTab = ({
           <RoomCard
             key={room.room_id}
             room={room}
-            onBook={() => onBookRoom(room)}
+            onBook={(room) => setSelectedRoom(room)}
           />
         );
       })}
+
+      <BookRoomDialog
+        room={selectedRoom}
+        isOpen={selectedRoom !== null}
+        onClose={() => setSelectedRoom(null)}
+      />
     </div>
   );
 };

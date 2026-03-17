@@ -74,7 +74,11 @@ export function RoomCard({ room, onBook }: RoomCardProps) {
         <Button
           variant="neon"
           className="w-full group-hover:shadow-[0_0_30px_hsl(var(--primary)/0.5)]"
-          onClick={() => onBook?.(room)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onBook?.(room);
+          }}
           disabled={!room.is_active}
         >
           BOOK NOW

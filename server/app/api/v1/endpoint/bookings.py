@@ -385,6 +385,7 @@ def create_booking(
                 "id": first_booking.id,
                 "room_id": first_booking.room_id,
                 "subject": first_booking.subject,
+                "description": first_booking.description,
                 "start_time_str": first_booking.start_time.strftime("%Y-%m-%d %H:%M"),
                 "end_time_str": first_booking.end_time.strftime("%H:%M"),
                 "start_time_iso": first_booking.start_time.isoformat(),
@@ -410,7 +411,8 @@ def create_booking(
                 room_id=booking_notify_info["room_id"],
                 start_time=booking_notify_info["start_time_str"],
                 end_time=booking_notify_info["end_time_str"],
-                meet_link=booking_notify_info["meet_link"]
+                meet_link=booking_notify_info["meet_link"],
+                description=booking_notify_info.get("description")
             )
 
         # 10. Broadcast Payloads

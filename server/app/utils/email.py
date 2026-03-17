@@ -70,7 +70,8 @@ def send_booking_confirmation_email(
     room_id: str, 
     start_time: str, 
     end_time: str, 
-    meet_link: str | None = None
+    meet_link: str | None = None,
+    description: str | None = None
 ):
     """
     Sends a booking confirmation email to an attendee.
@@ -99,6 +100,7 @@ def send_booking_confirmation_email(
                     <p><strong>Room:</strong> {room_id}</p>
                     <p><strong>Time:</strong> {start_time} - {end_time} (IST)</p>
                     {f'<p><strong>Google Meet:</strong> <a href="{meet_link}">{meet_link}</a></p>' if meet_link else ''}
+                    {f'<p><strong>Description:</strong><br>{description.replace("\\n", "<br>")}</p>' if description else ''}
                 </div>
                 <p>See you there!</p>
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
@@ -107,7 +109,7 @@ def send_booking_confirmation_email(
         </html>
         """
         
-        msg.set_content(f"Meeting Confirmed: {subject}. Room: {room_id}. Time: {start_time} - {end_time}. Meet: {meet_link or 'N/A'}")
+        msg.set_content(f"Meeting Confirmed: {subject}. Room: {room_id}. Time: {start_time} - {end_time}. Meet: {meet_link or 'N/A'}. Description: {description or 'N/A'}")
         msg.add_alternative(html_content, subtype='html')
 
         smtp_port = settings.SMTP_PORT if settings.SMTP_PORT else 587

@@ -22,9 +22,10 @@ import {
 interface RoomCardAdminProps {
   room: Room;
   onEdit: (room: Room) => void;
+  onBook?: (room: Room) => void;
 }
 
-export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
+export function RoomCardAdmin({ room, onEdit, onBook }: RoomCardAdminProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -175,7 +176,11 @@ export function RoomCardAdmin({ room, onEdit }: RoomCardAdminProps) {
           variant="neon"
           size="sm"
           className="w-full"
-          onClick={() => navigate("/book", { state: { preselectedRoomId: room.room_id } })}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onBook?.(room);
+          }}
           disabled={!room.is_active}
         >
           BOOK NOW

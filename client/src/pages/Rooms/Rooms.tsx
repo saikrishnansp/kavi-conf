@@ -7,6 +7,7 @@ import {
 import { RetroBackground } from "@/components/RetroBackground";
 import { RetroHeader } from "@/components/RetroHeader";
 import { EditRoomDialog } from "@/components/RoomDialogs";
+import { BookRoomDialog } from "@/components/BookRoomDialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -377,7 +378,6 @@ const Rooms = () => {
               rooms={filteredRooms}
               isAdmin={isAdmin}
               onEditRoom={handleEditRoom}
-              onBookRoom={(room) => navigate("/book", { state: { preselectedRoomId: room.room_id } })}
             />
           </TabsContent>
 
